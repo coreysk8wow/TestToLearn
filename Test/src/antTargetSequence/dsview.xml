@@ -1,0 +1,3171 @@
+<project name="DSView 3 Nmm Api" default="jetty" basedir="..">
+    <import file="scripts\common-impl.xml" />
+    <taskdef name="vc7" classname="com.arrizza.ant.taskdefs.VC7"  onerror="ignore"/>
+        
+    <property environment="env" />
+
+    <!-- The following properties file, defines the release branches and -->
+    <!-- Other components that vary with the release of DSView           -->        
+    <property file="build/settings/project.properties"/>
+    <property file="build/settings/LocalEnvironment.properties"/>
+    
+    <!-- Patternsets of files to exclude from various zip packages -->
+    <patternset id="exclude.win32">
+        <exclude name="**/*.sh"/>
+        <exclude name="**/*.so"/>
+        <exclude name="**/*.so.linux"/>
+        <exclude name="**/*.so.solaris"/>
+        <exclude name="**/*.sh.linux"/>
+        <exclude name="**/*.sh.solaris"/>
+        <exclude name="**/*.jnilib.macosx"/>
+        <exclude name="**/bin/dsviewserver.*"/>
+        <exclude name="**/bin/dsviewserver"/>
+    </patternset>
+
+    <patternset id="exclude.linux">
+        <exclude name="**/bin/*.exe"/>
+        <exclude name="**/*.dll"/>
+        <exclude name="**/*.sh.linux"/>
+        <exclude name="**/*.sh.solaris"/>
+        <exclude name="**/*.so.linux"/>
+        <exclude name="**/*.so.solaris"/>
+        <exclude name="**/*.jnilib.macosx"/>
+        <exclude name="**/bin/dsviewservice.*"/>
+        <exclude name="**/bin/dsviewserver.*"/>
+    </patternset>
+
+    <patternset id="exclude.macosx">
+        <exclude name="**/bin/*.exe"/>
+        <exclude name="**/*.dll"/>
+        <exclude name="**/*.sh.linux"/>
+        <exclude name="**/*.sh.solaris"/>
+        <exclude name="**/*.so.linux"/>
+        <exclude name="**/*.so.solaris"/>
+        <exclude name="**/*.jnilib.macosx"/>
+        <exclude name="**/bin/dsviewservice.*"/>
+        <exclude name="**/bin/dsviewserver.*"/>
+    </patternset>
+
+    <patternset id="exclude.solaris">
+        <exclude name="**/bin/*.exe"/>
+        <exclude name="**/*.dll"/>
+        <exclude name="**/*.sh.linux"/>
+        <exclude name="**/*.sh.solaris"/>
+        <exclude name="**/*.so.linux"/>
+        <exclude name="**/*.so.solaris"/>
+        <exclude name="**/*.jnilib.macosx"/>
+        <exclude name="**/bin/dsviewservice.*"/>
+        <exclude name="**/bin/dsviewserver.*"/>
+    </patternset>
+
+    <target name="setVersion" depends="setupProperties">
+        <manifest file="${buildDir}/Manifest.mf">
+            <attribute name="Implementation-Version" value="${label}" /> 
+        </manifest>
+
+        <!-- Set the versions in the BackupRestore and AuthenticatorNTDomain rc files -->
+        <!-- Replace . with , -->
+        <echo message="${label}" file="./tmp.txt" />
+        <loadfile srcFile="tmp.txt" property="editlabel">
+            <filterchain>
+                <replacestring from="." to="," />
+            </filterchain>
+        </loadfile>
+        <delete file="./tmp.txt"/>
+        
+        <!-- Backup Restore RC File -->
+        <loadfile srcfile="${backupRestoreRCFile}" property="backupRestoreRCBuff">
+            <filterchain>
+                <!--Update FileVersion -->
+                <replaceregex pattern="VALUE &quot;FileVersion.*$" replace="@VERTOKEN@"/> 
+                <replacetokens>
+                    <token key="VERTOKEN" value="VALUE &quot;FileVersion&quot;, &quot;${label}\0&quot;" />
+                </replacetokens>
+                
+                <!--Update ProductVersion -->
+                <replaceregex pattern="VALUE &quot;ProductVersion.*$" replace="@VERTOKEN@"/> 
+                <replacetokens>
+                    <token key="VERTOKEN" value="VALUE &quot;ProductVersion&quot;, &quot;${label}\0&quot;" />
+                </replacetokens>    
+               
+                <!--Update FILEVERSION -->
+                <replaceregex pattern="FILEVERSION.*$" replace="@VERTOKEN@"/> 
+                <replacetokens>
+                    <token key="VERTOKEN" value="FILEVERSION ${editlabel}" />
+                </replacetokens>
+                
+                <!--Update PRODUCTVERSION -->
+                <replaceregex pattern="PRODUCTVERSION.*$" replace="@VERTOKEN@"/> 
+                <replacetokens>
+                    <token key="VERTOKEN" value="PRODUCTVERSION ${editlabel}" />
+                </replacetokens>                   
+            </filterchain>
+        </loadfile>
+        <echo message="${backupRestoreRCBuff}" file="${backupRestoreRCFile}"/>
+
+        <!-- Authenticator NT Domain RC File -->
+        <loadfile srcfile="${authNTDomainRCFile}" property="authNTDomainRCBuff">
+            <filterchain>
+                <!--Update FileVersion -->
+                <replaceregex pattern="VALUE &quot;FileVersion.*$" replace="@VERTOKEN@"/> 
+                <replacetokens>
+                    <token key="VERTOKEN" value="VALUE &quot;FileVersion&quot;, &quot;${label}\0&quot;" />
+                </replacetokens>
+                
+                <!--Update ProductVersion -->
+                <replaceregex pattern="VALUE &quot;ProductVersion.*$" replace="@VERTOKEN@"/> 
+                <replacetokens>
+                    <token key="VERTOKEN" value="VALUE &quot;ProductVersion&quot;, &quot;${label}\0&quot;" />
+                </replacetokens>    
+               
+                <!--Update FILEVERSION -->
+                <replaceregex pattern="FILEVERSION.*$" replace="@VERTOKEN@"/> 
+                <replacetokens>
+                    <token key="VERTOKEN" value="FILEVERSION ${editlabel}" />
+                </replacetokens>
+                
+                <!--Update PRODUCTVERSION -->
+                <replaceregex pattern="PRODUCTVERSION.*$" replace="@VERTOKEN@"/> 
+                <replacetokens>
+                    <token key="VERTOKEN" value="PRODUCTVERSION ${editlabel}" />
+                </replacetokens>                   
+            </filterchain>
+        </loadfile>
+        <echo message="${authNTDomainRCBuff}" file="${authNTDomainRCFile}"/>
+    </target>
+
+    <!-- 
+      ## The following targets envJDK, localJDK, propJDK will try to set
+      ## the JDK path in the following order: read the MY_JDK_HOME environment, 
+      ## if not found read the java.install.path property defined in LocalEnvironment.property
+      ## and if not found there then set it from the property defined in project.properties.
+      ## 
+      ## Local Environment.property is a file that is suppose to be changed as needed by the developer
+      ## 
+      -->
+
+    <target name="envJDK" if="env.MY_JDK_HOME">
+	<property name="JDK_PATH" value="${env.MY_JDK_HOME}" />
+    </target>
+
+    <target name="localJDK" if="java.install.path">
+	<property name="JDK_PATH"  value="${java.install.path}" />
+    </target>
+
+    <target name="propJDK" unless="java.install.path">
+	<property name="JDK_PATH"  value="${MY_JDK_HOME}" />
+    </target>
+
+    <!-- 
+      ### ### ### ### ### ### ### ### ### ### ### ### ### 
+      -->
+
+    <target name="setupProperties" depends="envJDK,localJDK,propJDK" >
+        <echo>${JDK_PATH}</echo>
+	<property name="JAVA_JVM"  value="${JDK_PATH}/jre/bin/java.exe" />
+	<property name="JAVAC_EXE" value="${JDK_PATH}/bin/javac.exe" />
+        
+        <property name="DSViewProject" value="dsview/nmmapi"/>
+        
+        <!-- Specific replacement values for Open OS scripts. These will replace
+        a variety of tokens.
+        -->
+        <property name="linux.shell"  value="/bin/sh"/>
+        <property name="linux.path"  value="${INSTALLDIR}/bin:/bin:/usr/bin:/sbin:/usr/sbin"/>
+        <property name="linux.listencmd"  value="/bin/netstat -lnt | awk '{print $4}' | awk -F: '{print $NF}' | grep &quot;^${TEST_PORT}$$&quot;"/>
+        <property name="linux.loggertag" value="daemon.info"/>
+        <property name="linux.echo" value="/bin/echo -e"/>
+        <property name="solaris.shell"  value="/usr/bin/ksh"/>
+        <property name="solaris.path"  value="${INSTALLDIR}/bin:/usr/xpg4/bin:/usr/bin"/>
+        <property name="solaris.listencmd"  value="/usr/bin/netstat -an -P tcp | grep LISTEN | awk '{print $1}' | awk -F. '{print $NF}' | grep &quot;^${TEST_PORT}$$&quot;"/>
+        <property name="solaris.loggertag" value="daemon.notice"/>
+        <property name="solaris.echo" value="/bin/echo"/>
+
+        <property name="keystore.name" value=".keystore"/>
+        <property name="keystore.alias" value="avocent"/>
+        <property name="keystore.password" value="beingthere2006"/>
+
+        <property name="authenticode.spc" value="mycredentials.spc"/>
+        <property name="authenticode.pvk" value="myprivatekey.pvk"/>
+        <property name="authenticode.cn" value="Avocent Huntsville Corporation"/>
+
+        <!-- Visual Studio Settings -->
+        <property name="DevTools" value="\\SUN-DATAVAULT\DEVTOOLS"/>
+        <property name="VC6VSCommonDir" value="${DevTools}\VS98\Common"/>
+        <property name="VC6MSDevDir" value="${DevTools}\VS98\Common\msdev98"/>
+        <property name="VC6MSVCDir" value="${DevTools}\VS98\VC98"/>
+        <property name="VC6VcOsDir" value="WINNT"/>  
+        <property name="VC7DevEnvDir" value="${DevTools}\VS_NET\Common7\IDE"/>
+        <property name="VC7DevToolsDir" value="${DevTools}\VS_NET\Common7\Tools\bin"/>
+        <property name="VC7DevEnvDir.2003" value="c:\Program Files\Microsoft Visual Studio .NET 2003\Common7\IDE"/>
+
+        <!-- linux cross compiler tools, running on Windows -->
+        <property name="LinuxTools"    value="${DevTools}\Cross_Compiler"/>
+        <property name="cross-lib"     value="${LinuxTools}\gcc-3.3.2-glibc-2.3.2\i386-unknown-linux-gnu\bin"/>
+        <property name="cross-bin"     value="${LinuxTools}\gcc-3.3.2-glibc-2.3.2\bin"/>
+        <property name="cross-include" value="${LinuxTools}\gcc-3.3.2-glibc-2.3.2\i386-unknown-linux-gnu\include"/>
+        <property name="cross-g++"     value="${cross-bin}\i386-unknown-linux-gnu-g++"/>
+
+        <!-- Used in Manifest files -->
+        <property name="corp.name" value="Avocent Corporation"/>
+
+        <available property="prefix" value="${basedir}/.." file="${basedir}/../build/dsview.xml"/>        
+        <condition property="prefix" value="${basedir}">
+            <not>
+                <isset property="prefix"/>
+            </not>
+        </condition>
+
+        <!-- Setup Directories -->
+        <property name="rootDir" value="${prefix}"/>
+        <property name="srcDir" value="${prefix}/src"/>
+        <property name="outDir" value="${prefix}/classes"/>
+        <property name="localizationDir" value="${prefix}/localization" />       
+        <property name="coverageDir" value="${prefix}/coverage"/>
+        <property name="instrDir" value="${prefix}/outinstr"/>
+        <property name="junitDir" value="${prefix}/junit-reports"/>
+        <property name="buildDir" value="${prefix}/build"/>
+        <property name="buildSrcDir" value="${buildDir}/src"/>      
+        <property name="buildOutDir" value="${buildDir}/classes"/>
+        <property name="buildLibDir" value="${buildDir}/lib"/>
+        <property name="warDir" value="${prefix}/dsview"/>
+        <property name="cssDir" value="${prefix}/dsview"/>
+        <property name="jettySrcDir" value="${prefix}/jetty"/>
+        <property name="jettyOutDir" value="${prefix}/output"/>
+        <property name="libDir" value="${prefix}/lib"/>
+        <property name="compLibDir" value="${prefix}/complib"/>
+        <property name="compLibDirMacOS" value="${prefix}/complibMacOS"/>
+        <property name="webInfDir" value="${warDir}/WEB-INF"/>
+        <property name="compMibDir" value="${warDir}/WEB-INF/mibs"/>
+        <property name="docOutDir" value="${prefix}/doc"/>
+        <property name="etcSrcDir" value="${prefix}/etc"/>
+        <property name="testSrcDir" value="${prefix}/test"/>
+        <property name="testOutDir" value="${prefix}/testclasses"/>
+        <property name="zkmDir" value="${prefix}/zkm"/>
+        <property name="eqxOutDir" value="${prefix}/eqxOutput"/>
+        <property name="imageDir" value="${warDir}/images"/>
+        <property name="rasClientJNIDir" value="${prefix}/win32/RasClientJNI" /> 
+        <property name="backupRestoreRCFile" value="${prefix}/win32/BackupRestore/DsviewBackupRestore.rc" />  
+        <property name="authNTDomainRCFile"  value="${prefix}/win32/AuthenticatorNTDomain/AuthenticatorNTDomain.rc" />
+        <property name="stestDir" value="${prefix}/system-test-results" />
+        <property name="viewerMacOS" value="${prefix}/classes/com/avocent/dsview/client/viewerMacOS"/>
+        <property name="telnetMacOS" value="${prefix}/classes/com/avocent/dsview/client/telnetMacOS"/>
+        <property name="xmlrpcMacOS" value="${prefix}/classes/com/avocent/dsview/common/xmlrpcMacOS"/>
+        
+        <!-- Setup FTP machine configuration - Used to deploy nightyBuilds -->
+        <property name="dsview.demo.address"   value="172.26.4.245"/>
+        <property name="dsview.demo.username"  value="upload"/>
+        <property name="dsview.demo.password"  value="upload"/>
+        <property name="dsview.demo.package"   value="build.tar.bz2"/>
+        <property name="dsview.demo.action"    value="put" />
+         
+        <!-- Setup FTP machine configuration - Used to deploy nightyBuilds to SUN-ST108JESCBT in system test -->
+        <property name="dsview.stest.address"   value="172.30.5.208"/>
+        <property name="dsview.stest.username"  value="DevShareAdmin"/>
+        <property name="dsview.stest.password"  value="Devadmin123"/>
+        <property name="dsview.stest.package"   value="win32build.tar.bz2"/>
+        <property name="dsview.stest.action"    value="put" />
+         
+        <!-- Setup Mail Logger Configuration -->
+        <property name="MailLogger.mailhost" value="SUN-EMAIL.corp.avocent.com"/>
+        <!-- password is "beingthere2005" -->
+        <property name="MailLogger.from" value="DSView3Build@avocent.com"/>
+        <property name="MailLogger.failure.to" value="eduardo.fernandez@avocent.com,jim.shelton@avocent.com,brian.stewart@avocent.com,ken.harper@avocent.com"/>
+        <property name="MailLogger.success.to" value="eduardo.fernandez@avocent.com,jim.shelton@avocent.com,brian.stewart@avocent.com,ken.harper@avocent.com"/>
+
+        <property name="emma.dir" value="${buildLibDir}" />
+        <path id="emma.lib">
+            <pathelement location="${emma.dir}\emma.jar" /> 
+            <pathelement location="${emma.dir}\emma_ant.jar" /> 
+        </path> 
+        <taskdef resource="emma_ant.properties" classpathref="emma.lib" /> 
+        
+        <!-- Determine Date Properties -->
+        <tstamp>
+            <format property="build.time" pattern="MM/dd/yyyy hh:mm aa"/>
+        </tstamp>
+        <tstamp>
+            <format property="build.time.plus.one" pattern="MM/dd/yyyy hh:mm aa" offset="1" unit="minute"/>
+        </tstamp>
+        <tstamp>
+            <format property="build.dow.time" pattern="E, MM/dd/yyyy hh:mm aa"/>
+        </tstamp>
+        <tstamp>
+            <format property="build.year" pattern="yyyy"/>
+        </tstamp>        
+        <loadfile srcfile="${buildDir}/MANIFEST.MF" property="build.version">
+            <filterchain>
+                <linecontains>
+                    <contains value="Implementation-Version:"/>
+                </linecontains>
+                <replacetokens begintoken="I" endtoken=" ">
+                    <token key="mplementation-Version:" value=""/>
+                </replacetokens>
+                <striplinebreaks/>
+            </filterchain>
+        </loadfile>
+
+        <!-- Create main classpath variable -->
+        <path id="buildLibs">
+            <fileset dir="${buildLibDir}">
+                <include name="*.jar"/>
+                <include name="*.zip"/>
+            </fileset>
+            <filelist dir="${JDK_PATH}/lib" files="tools.jar" />
+        </path>
+        <taskdef resource="net/sf/antcontrib/antlib.xml" classpathref="buildLibs"/>  
+    </target>
+       
+    <!-- Builds Everything -->
+    <target name="nightly" depends="labeled,properties,unittest,javadoc">
+    </target>
+
+    <!-- Generate a dsview-server.properties file if it does not exist -->
+    <target name="properties" depends="init,buildtools">
+        <java classname="GenerateProperties" fork="yes" jvm="${JAVA_JVM}" classpath="${buildOutDir};${outDir}" classpathref="libs" failonerror="true">
+            <arg value="${jettyOutDir}/bin"/>
+        </java>
+        <copy file="${compLibDir}/pbembedded.lic" tofile="${jettyOutDir}/etc/dsvdbase.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbunisync.lic" tofile="${jettyOutDir}/etc/dsvsync.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbupgrade.jar" tofile="${jettyOutDir}/etc/pbupgrade.jar" preservelastmodified="yes"/>
+    </target>
+
+    <!-- Generate a tweaks.properties -->
+    <target name="tweaks" depends="init,buildtools">
+        <java classname="FindTweaks" classpath="${buildOutDir};${outDir}" classpathref="libs" failonerror="true" fork="yes" jvm="${JAVA_JVM}">
+            <arg value="-ignore"/>
+            <arg value="tcp.listenerPort"/>
+            <arg value="-scan"/>
+            <arg value="${warDir}/WEB-INF/lib/dsview.jar"/>
+            <arg value="${warDir}/WEB-INF/lib/avctProtocols.jar"/>
+            <arg value="-output"/>
+            <arg value="${warDir}/WEB-INF/tweaks.properties"/>
+        </java>
+    </target>    
+    
+    <!-- Spit out the Database Parameters for Pointbase -->
+    <target name="dbParams" depends="init,buildtools">
+        <java classname="DbParams" dir="${jettyOutDir}\\bin" classpath="${buildOutDir};${outDir}" classpathref="libs" failonerror="true" fork="yes" jvm="${JAVA_JVM}" />
+    </target>    
+
+    <!-- Open the Database Console -->
+    <target name="dbConsole" depends="init,buildtools">
+        <java classname="OpenDSVDBase" dir="${jettyOutDir}\\bin" classpath="${buildOutDir};${outDir};${warDir}/WEB-INF/classes" classpathref="libs" failonerror="true" fork="yes" jvm="${JAVA_JVM}"/>
+    </target>    
+    
+    <!-- Performs a Clean Jetty Build, this is the EqxBuild target -->
+    <target name="labeled" depends="fullclean,dotNet,openos,jetty">
+    </target>
+
+    <!-- Does a minimalist jetty build for development purposes -->
+    <target name="jetty_dev" >
+        <antcall target="jetty">
+            <param name="jspGen.notRequired" value="true"/>
+            <param name="win32.notRequired" value="true"/>
+            <param name="applets.notRequired" value="true"/>
+        </antcall>
+    </target>
+
+    <target name="eula" depends="init">
+        <loadfile property="eula.text" srcFile="${compLibDir}/EULA.txt"/>
+        <echo message="${eula.text}" file="${jettyOutDir}/EULA.txt"/>
+        <mkdir dir="${warDir}/help/en" />
+        <echo message="${eula.text}" file="${warDir}/help/en/eula.txt"/>
+        <copy file="${compLibDir}/THIRDPARTYLICENSEREADME.txt" tofile="${jettyOutDir}/DSView 3 Third-Party Licenses ReadMe File.txt"/>
+    </target>
+
+ 
+    <target name="deployTranslations" depends="init">
+        <echo>unzipping translations file</echo>
+        <unzip src="lib/res_translations.zip" dest="${warDir}/WEB-INF/res" />  
+    </target>
+  
+    
+    <target name="deployPlugins" depends="init">
+        <copy todir="${jettyOutDir}/addon/nmms/installed">
+            <fileset dir="preinstalled_plugins" />
+        </copy>
+    </target>
+
+    <!-- Performs the Jetty build -->
+    <target name="jetty" depends="clean-reports,copydtdfilestowebinf,unittest,junit,jspprecompile,jettyjar,flexPackage,webapp,tweaks,win32,deployTranslations,deployPlugins">
+        <echo>Copying jettyOutDir</echo>
+        <copy todir="${jettyOutDir}" preservelastmodified="yes">
+            <fileset dir="${jettySrcDir}" />
+        </copy>
+        <copy file="${compLibDir}/pbembedded.lic" tofile="${jettyOutDir}/etc/dsvdbase.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbunisync.lic" tofile="${jettyOutDir}/etc/dsvsync.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbupgrade.jar" tofile="${jettyOutDir}/etc/pbupgrade.jar" preservelastmodified="yes"/>
+        <echo>Copying webapp</echo>
+        <copy todir="${jettyOutDir}/webapp" preservelastmodified="yes">
+            <fileset dir="${warDir}" excludes="**/classes/**"/>
+        </copy>
+        <echo>DONE Copying webapp</echo>
+        <jar update="true" compress="true" jarfile="${jettyOutDir}/ext/httpshandler.jar">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - HTTPS Handler"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+            <fileset dir="${outDir}">
+                <include name="com/avocent/dsview/server/auth/https/*.class"/>
+            </fileset>
+        </jar>
+        <jar update="true" compress="true" jarfile="${jettyOutDir}/ext/jettyservice.jar">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Jetty Custom JSSE Listener"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+            <fileset dir="${outDir}">
+                <include name="com/avocent/dsview/server/util/jetty/*.class" />
+                <include name="com/avocent/dsview/server/auth/DSViewServerCredentials*.class" />
+                <include name="com/avocent/dsview/server/util/DSViewServerProperties*.class" />
+                <include name="com/avocent/dsview/server/util/KeyStoreHelper*.class" />
+                <include name="com/avocent/dsview/server/util/HttpsConfiguration*.class" />
+            </fileset>
+            <fileset dir="${srcDir}">
+                <include name="com/avocent/dsview/server/util/jetty/*.cert"/>
+            </fileset>
+        </jar>
+        <copy todir="${jettyOutDir}/ext" preservelastmodified="yes">
+            <fileset dir="${compLibDir}">
+                <include name="avctUtil.jar"/>
+                <include name="avctNet.jar"/>
+                <include name="avctGUI.jar"/>
+                <include name="avctVideo.jar"/>
+                <include name="avctViewerApi.jar"/>
+            </fileset>
+        </copy>
+        <copy todir="${jettyOutDir}/bin" preservelastmodified="yes">
+            <fileset dir="${compLibDir}">
+                <include name="avctWin32Lib.dll"/>
+                <include name="libavctNet.so.linux"/>
+                <include name="libavctNet.so.solaris"/>
+                <include name="avctNet.dll"/>
+                <include name="libZipArchiveWrapper.so.linux"/>
+                <include name="libZipArchiveWrapper.so.solaris"/>
+            </fileset>
+        </copy>
+        <copy todir="${jettyOutDir}/bin" preservelastmodified="yes">
+            <fileset dir="${compLibDir}">
+                <include name="DSView3xasap.dll"/>
+            </fileset>
+        </copy>
+        <touch datetime="${build.time}">
+            <fileset dir="${jettyOutDir}"/>
+        </touch>
+        <touch datetime="${build.time.plus.one}">
+            <fileset dir="${jettyOutDir}/webapp/WEB-INF/jspclasses"/>
+        </touch>
+    </target>
+
+    <!-- Copies 3 files in the dsview/etc/dtd folder to WEB-INF -->
+    <target name="copydtdfilestowebinf" >
+        <echo>Copying files in etc/dtd to WEB-INF</echo>
+        <copy todir="${webInfDir}" preservelastmodified="yes">
+            <fileset dir="${etcSrcDir}/dtd" />
+        </copy>
+    </target>
+    
+    <target name="ifaceviewer3MacOS" depends="init, classes, classesMacOS" unless="applets.notRequired" >
+
+        <!-- Create Interface Viewer JAR, Mac OS version -->
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDirMacOS}/avctUtil.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctNet.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctGUI.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctProtocols.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctViewerApi.jar" dest="tmp"/>
+
+        <delete>
+            <fileset dir="tmp">
+                <exclude name="com/avocent/lib/interfaces/InterfaceViewer3.class"/>
+                <exclude name="com/avocent/lib/interfaces/SessionStatus.class"/>
+                <exclude name="com/avocent/lib/debug/*.class"/>
+                <exclude name="com/avocent/lib/util/*.class"/>
+                <exclude name="com/avocent/protocols/socket/SSLHelper.class"/>
+                <exclude name="com/avocent/protocols/socket/SSLHelper$*.class"/>
+                <exclude name="com/avocent/lib/exceptions/*.class"/>
+            </fileset>
+        </delete>
+         
+        <!-- Copy Mac OS videosessionmanager, telnet and xmlrpc class files to a new viewer directory before jar-ing them.
+             Needed for proper class path in the jar file -->
+          
+        <mkdir dir="tmp/com/avocent/dsview/client/viewer" />
+        <echo>Mac OS ifaceviewer3: copying class files from ${viewerMacOS} to tmp/com/avocent/dsview/client/viewer </echo>
+        <copy todir="tmp/com/avocent/dsview/client/viewer" preservelastmodified="yes" failOnError="false">
+            <fileset dir="${viewerMacOS}">
+                <include name="**/*.class"/>
+            </fileset>
+        </copy>
+
+        <mkdir dir="tmp/com/avocent/dsview/common/xmlrpc" />
+        <echo>Mac OS ifaceviewer3: copying class files from ${xmlrpcMacOS} to tmp/com/avocent/dsview/common/xmlrpc </echo>
+        <copy todir="tmp/com/avocent/dsview/common/xmlrpc" preservelastmodified="yes" failOnError="false">
+            <fileset dir="${xmlrpcMacOS}">
+                <include name="XmlHelper.class"/>
+                <include name="XmlRpcClient.class"/>
+                <include name="XmlRpcHttpClient.class"/>
+                <include name="XmlRpcHttpsClient.class"/>
+            </fileset>
+        </copy>
+          
+        <mkdir dir="tmp/com/avocent/dsview/client/telnet" />
+        <echo>Mac OS ifaceviewer3: copying class files from ${telnetMacOS} to tmp/com/avocent/dsview/client/telnet </echo>
+        <copy todir="tmp/com/avocent/dsview/client/telnet" preservelastmodified="yes" failOnError="false">
+            <fileset dir="${telnetMacOS}">
+                <include name="**/*.class"/>
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>  
+        
+        <jar update="true" jarfile="${compLibDirMacOS}/ifaceviewer3.jar" basedir="tmp"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+    </target>
+     
+    <!-- This target should compile and repackage the viewer applets -->
+    <target name="applets" depends="classes, ifaceviewer3MacOS" unless="applets.notRequired" >
+
+        <!-- Create Interface Viewer JAR -->
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDir}/avctUtil.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctNet.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctGUI.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctProtocols.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctViewerApi.jar" dest="tmp"/>
+        <delete>
+            <fileset dir="tmp">
+                <exclude name="com/avocent/lib/interfaces/InterfaceViewer3.class"/>
+                <exclude name="com/avocent/lib/interfaces/SessionStatus.class"/>
+                <exclude name="com/avocent/lib/debug/*.class"/>
+                <exclude name="com/avocent/lib/util/*.class"/>
+                <exclude name="com/avocent/protocols/socket/SSLHelper.class"/>
+                <exclude name="com/avocent/protocols/socket/SSLHelper$*.class"/>
+                <exclude name="com/avocent/lib/exceptions/*.class"/>
+            </fileset>
+        </delete>
+        <copy todir="tmp" preservelastmodified="yes">
+            <fileset dir="${outDir}">
+                <include name="com/avocent/dsview/client/viewer/*.class"/>
+                <include name="com/avocent/dsview/common/xmlrpc/XmlHelper.class"/>
+                <include name="com/avocent/dsview/common/xmlrpc/XmlRpcClient.class"/>
+                <include name="com/avocent/dsview/common/xmlrpc/XmlRpcHttpClient.class"/>
+                <include name="com/avocent/dsview/common/xmlrpc/XmlRpcHttpsClient.class"/>
+            </fileset>
+        </copy>
+        <jar update="true" jarfile="${compLibDir}/ifaceviewer3.jar" basedir="tmp"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        
+        <!-- Create DirectCommand JAR -->
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDir}/directCommandViewerCore.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/ifaceviewer3.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctProtocols.jar" dest="tmp"/>
+        <delete dir="tmp/META-INF"/>
+      
+        <jar jarfile="${warDir}/applets/directCommandViewer.jar" basedir="tmp" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Direct Command Viewer"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/directCommandViewer.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+
+        <!-- Create mgpspautologinviewer JAR -->
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDir}/mgpSPAutoLoginViewer.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/ifaceviewer3.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctProtocols.jar" dest="tmp"/>
+        <delete dir="tmp/META-INF"/>
+      
+        <jar jarfile="${warDir}/applets/mgpSPAutoLoginViewer.jar" basedir="tmp" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Web Start Viewer"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/mgpSPAutoLoginViewer.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" /> 
+        
+        <!-- Create Mac OS-X version of Java Telnet Application, includes Third Party and Swing Telnet Client -->
+        <mkdir dir="tmp" />
+        
+        <copy todir="tmp/com/avocent/dsview/client/telnet" preservelastmodified="yes" failOnError="false">
+            <fileset dir="${telnetMacOS}">
+                <include name="**/*.class"/>
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>
+        
+        <unjar src="${compLibDirMacOS}/serialconsoleviewer.jar" dest="tmp"/> <!-- Grab Java Telnet Application -->
+        <unjar src="${compLibDirMacOS}/ifaceviewer3.jar" dest="tmp"/> <!-- Grab DSView Interface -->
+        <unjar src="${compLibDirMacOS}/avctUtil.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctNet.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctGUI.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctProtocols.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctViewerApi.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/mindterm.jar" dest="tmp"/>
+        <delete dir="tmp/META-INF"/>
+        <!-- remove unwanted properties. -->
+        <delete>
+            <fileset dir="tmp">
+                <include name="**/*.properties"/>
+                <exclude name="**/Res.properties"/>
+                <exclude name="**/font.*"/>
+                <exclude name="**/fontconfig.*"/>
+                <exclude name="**/Res_en.properties"/>
+                <exclude name="**/Res_zh.properties"/>
+                <exclude name="**/Res_ja.properties"/>
+                <exclude name="**/Res_ko.properties"/>
+                <exclude name="**/resources.properties"/>
+                <exclude name="**/resources_en.properties"/>
+                <exclude name="**/resources_zh.properties"/>
+                <exclude name="**/resources_ja.properties"/>
+                <exclude name="**/resources_ko.properties"/>
+                <exclude name="**/Help.properties"/>
+                <exclude name="**/Help_en.properties"/>
+                <exclude name="**/Help_zh.properties"/>
+                <exclude name="**/Help_ja.properties"/>
+                <exclude name="**/Help_ko.properties"/>
+            </fileset>
+        </delete>
+        
+        <jar jarfile="${warDir}/applets/avctsshtelnetMacOS.jar" basedir="tmp" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - SSH/Telnet Applet"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/avctsshtelnetMacOS.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+                
+        <!-- Create Java Telnet Application, includes Third Party and Swing Telnet Client -->
+        <mkdir dir="tmp" />
+        <copy todir="tmp" preservelastmodified="yes"> <!-- Grab 3rd party Application -->
+            <fileset dir="${outDir}">
+                <include name="com/avocent/dsview/client/telnet/*"/>
+            </fileset>
+        </copy>
+        <unjar src="${compLibDir}/serialconsoleviewer.jar" dest="tmp"/> <!-- Grab Java Telnet Application -->
+        <unjar src="${compLibDir}/ifaceviewer3.jar" dest="tmp"/> <!-- Grab DSView Interface -->
+        <unjar src="${compLibDir}/avctUtil.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctNet.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctGUI.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctProtocols.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctViewerApi.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/mindterm.jar" dest="tmp"/>
+        <delete dir="tmp/META-INF"/>
+        <!-- remove unwanted properties. -->
+        <delete>
+            <fileset dir="tmp">
+                <include name="**/*.properties"/>
+                <exclude name="**/Res.properties"/>
+		<exclude name="**/font.*"/>
+		<exclude name="**/fontconfig.*"/>
+                <exclude name="**/Res_en.properties"/>
+                <exclude name="**/Res_zh.properties"/>
+                <exclude name="**/Res_ja.properties"/>
+                <exclude name="**/Res_ko.properties"/>
+                <exclude name="**/resources.properties"/>
+                <exclude name="**/resources_en.properties"/>
+                <exclude name="**/resources_zh.properties"/>
+                <exclude name="**/resources_ja.properties"/>
+                <exclude name="**/resources_ko.properties"/>
+                <exclude name="**/Help.properties"/>
+                <exclude name="**/Help_en.properties"/>
+                <exclude name="**/Help_zh.properties"/>
+                <exclude name="**/Help_ja.properties"/>
+                <exclude name="**/Help_ko.properties"/>
+            </fileset>
+        </delete>
+        
+        <jar jarfile="${warDir}/applets/avctsshtelnet.jar" basedir="tmp" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - SSH/Telnet Applet"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/avctsshtelnet.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+
+        <!-- Create MAC OS-X version of VNC Viewer Applet -->
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDirMacOS}/avctVncViewer.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/ifaceviewer3.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctUtil.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctGUI.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctNet.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctViewerApi.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctProtocols.jar" dest="tmp"/>
+        <delete dir="tmp/META-INF"/>
+        <!-- remove unwanted properties. -->
+        <delete>
+            <fileset dir="tmp">
+                <include name="**/*.properties"/>
+                <exclude name="**/font.*"/>
+		<exclude name="**/fontconfig.*"/>
+                <exclude name="**/Res.properties"/>
+                <exclude name="**/Res_en.properties"/>
+                <exclude name="**/Res_zh.properties"/>
+                <exclude name="**/Res_ja.properties"/>
+                <exclude name="**/Res_ko.properties"/>
+            </fileset>
+        </delete>
+      
+        <jar jarfile="${warDir}/applets/avctvncviewerMacOS.jar" basedir="tmp" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Video Viewer"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/avctvncviewerMacOS.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+
+        <!-- Create VNC Viewer Applet -->
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDir}/avctVncViewer.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/ifaceviewer3.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctUtil.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctGUI.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctNet.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctViewerApi.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctProtocols.jar" dest="tmp"/>
+        <delete dir="tmp/META-INF"/>
+        <!-- remove unwanted properties. -->
+        <delete>
+            <fileset dir="tmp">
+                <include name="**/*.properties"/>
+                <exclude name="**/font.*"/>
+		<exclude name="**/fontconfig.*"/>
+                <exclude name="**/Res.properties"/>
+                <exclude name="**/Res_en.properties"/>
+                <exclude name="**/Res_zh.properties"/>
+                <exclude name="**/Res_ja.properties"/>
+                <exclude name="**/Res_ko.properties"/>
+            </fileset>
+        </delete>
+      
+        <jar jarfile="${warDir}/applets/avctvncviewer.jar" basedir="tmp" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Video Viewer"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/avctvncviewer.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+
+        <!-- Create Mac OX version of the Main Video Viewer Applet -->
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDir}/avctVideo.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctVM.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/jpcsc.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/ifaceviewer3.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctUtil.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctGUI.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctNet.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctViewerApi.jar" dest="tmp"/>
+        <unjar src="${compLibDirMacOS}/avctProtocols.jar" dest="tmp"/>
+        <delete dir="tmp/META-INF"/>
+        <!-- remove unwanted properties. -->
+        <delete>
+            <fileset dir="tmp">
+                <include name="**/*.properties"/>
+                <exclude name="**/Options.properties"/>
+                <exclude name="**/font.*"/>
+                <exclude name="**/fontconfig.*"/>
+                <exclude name="**/keyboard/*.properties"/>
+                <exclude name="**/Res.properties"/>
+                <exclude name="**/Res_en.properties"/>
+                <exclude name="**/Res_en__avct.properties"/>
+                <exclude name="**/Res_zh.properties"/>
+                <exclude name="**/Res_zh__avct.properties"/>
+                <exclude name="**/Res_ja.properties"/>
+                <exclude name="**/Res_ja__avct.properties"/>
+                <exclude name="**/Res_ko.properties"/>
+                <exclude name="**/Res_ko__avct.properties"/>
+            </fileset>
+        </delete>
+        
+        <!-- Reomve other unwanted files -->
+        <delete>
+            <fileset dir="tmp">
+                <include name="**/protocols/aidp/*.*" />
+                <include name="**/protocols/asmp/*.*" />
+                <include name="**/gui/renderers/*.*" />
+                <include name="**/gui/wizards/*.*" />
+            </fileset>
+        </delete>
+        
+        <jar jarfile="${warDir}/applets/avctvideoviewerMacOS.jar" basedir="tmp" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Video Viewer"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/avctvideoviewerMacOS.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        
+        <!-- Create Main Video Viewer Applet -->
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDir}/avctVideo.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctVM.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/jpcsc.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/ifaceviewer3.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctUtil.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctGUI.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctNet.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctViewerApi.jar" dest="tmp"/>
+        <unjar src="${compLibDir}/avctProtocols.jar" dest="tmp"/>
+        <delete dir="tmp/META-INF"/>
+        <!-- remove unwanted properties. -->
+        <delete>
+            <fileset dir="tmp">
+                <include name="**/*.properties"/>
+		<exclude name="**/Options.properties"/>
+		<exclude name="**/font.*"/>
+		<exclude name="**/fontconfig.*"/>
+                <exclude name="**/keyboard/*.properties"/>
+                <exclude name="**/Res.properties"/>
+                <exclude name="**/Res_en.properties"/>
+                <exclude name="**/Res_en__avct.properties"/>
+                <exclude name="**/Res_zh.properties"/>
+                <exclude name="**/Res_zh__avct.properties"/>
+                <exclude name="**/Res_ja.properties"/>
+                <exclude name="**/Res_ja__avct.properties"/>
+                <exclude name="**/Res_ko.properties"/>
+                <exclude name="**/Res_ko__avct.properties"/>
+            </fileset>
+        </delete>
+        
+        <!-- Reomve other unwanted files -->
+        <delete>
+            <fileset dir="tmp">
+                <include name="**/protocols/aidp/*.*" />
+                <include name="**/protocols/asmp/*.*" />
+                <include name="**/gui/renderers/*.*" />
+                <include name="**/gui/wizards/*.*" />
+            </fileset>
+        </delete>
+        
+        <jar jarfile="${warDir}/applets/avctvideoviewer.jar" basedir="tmp" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Video Viewer"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/avctvideoviewer.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+
+        <!-- Create Windows Native Code Jar For The Video Viewer Applet -->
+        <jar jarfile="${warDir}/applets/avctvideoviewer-win32.jar" basedir="${compLibDir}" includes="acvvWin32Lib.dll avmWin32Lib.dll" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Video Viewer - Win32 Native Libs"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/avctvideoviewer-win32.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+
+        <!-- Create Linux Native Code Jar For The Video Viewer Applet -->
+        <jar jarfile="${warDir}/applets/avctvideoviewer-linux.jar" basedir="${compLibDir}" 
+             includes="libavctLinux.so libavmLinux.so libjpcsc.so" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Video Viewer - Linux Native Libs"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/avctvideoviewer-linux.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+
+        <!-- Create Solaris Native Code Jar For The Video Viewer Applet -->
+        <jar jarfile="${warDir}/applets/avctvideoviewer-solaris.jar" basedir="${compLibDir}" includes="libavctSolaris.so libavmSolaris.so" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Video Viewer - Solaris Native Libs"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/avctvideoviewer-solaris.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+
+        <!-- Create Mac OS X Native Code Jar For The Video Viewer Applet -->
+        <jar jarfile="${warDir}/applets/avctvideoviewer-macosx.jar" basedir="${compLibDir}" includes="libavctMacOSX.jnilib libavmMacOSX.jnilib" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Video Viewer - Mac OS X Native Libs"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/avctvideoviewer-macosx.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+
+        <!-- Create Jar For The Session Manager Applet -->
+        <jar jarfile="${warDir}/applets/videosessionmanager.jar" basedir="${outDir}" includes="com/avocent/dsview/client/viewer/*Applet*.class" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Video Session Manager"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        <signjar jar="${warDir}/applets/videosessionmanager.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+
+        <!-- Create Jar For The Session Manager Applet for Mac OS -->
+                
+        <!-- Copy Mac OS videosessionmanager class files to a new viewer directory before jar-ing them.
+             Needed for proper class path in the jar file -->
+        <mkdir dir="tmp/com/avocent/dsview/client/viewer" />
+        <echo>Mac OS videosessionmanager: copying class files from ${viewerMacOS} to tmp/com/avocent/dsview/client/viewer </echo>
+        <copy todir="tmp/com/avocent/dsview/client/viewer" preservelastmodified="yes" failOnError="false">
+            <fileset dir="${viewerMacOS}">
+                <exclude name="**/*.java*"/>
+            </fileset>
+        </copy>
+        <jar jarfile="${warDir}/applets/videosessionmanagerMacOS.jar" basedir="tmp" includes="com/avocent/dsview/client/viewer/*Applet*.class" compress="true">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Video Session Manager"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+        </jar>
+        
+        <delete dir="tmp/com" />   
+        
+        <signjar jar="${warDir}/applets/videosessionmanagerMacOS.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+        
+        <copy todir="${warDir}/applets" preservelastmodified="yes">
+            <fileset dir="${compLibDir}">
+                <include name="*.cab"/>
+                <include name="*.xpi"/>
+                <include name="*.msi"/>
+                <include name="*.ver"/>
+            </fileset>
+        </copy>
+
+    </target>
+
+    <!-- This target calls the WSDL2Java  utility to build the IPMI Client and DSView Server classes -->
+    <target name="wsdlautogen" depends="buildtools,chkwsdlautogen" unless="wsdlAutoGen.notRequired">
+        <!-- Creating IPMI Client Classes -->
+        <java classname="org.apache.axis.wsdl.WSDL2Java" classpathref="libs" fork="yes" jvm="${JAVA_JVM}">
+            <arg value="-w"/>
+            <arg value="-p"/>
+            <arg value="com.avocent.osa.ipmi"/>
+            <arg value="-o"/>
+            <arg value="${srcDir}"/>
+            <arg value="${etcSrcDir}/wsdl/ipmiappliance.wsdl"/>
+        </java>
+
+        <!-- DSView Web Server Server Side Classes: SessionMgmt -->
+        <java classname="org.apache.axis.wsdl.WSDL2Java" classpathref="libs" fork="yes" jvm="${JAVA_JVM}">
+            <arg value="-W"/>
+            <arg value="-a"/>
+            <arg value="--skeletonDeploy"/>
+            <arg value="true"/>
+            <arg value="-o"/>
+            <arg value="${srcDir}"/>
+            <arg value="${etcSrcDir}/wsdl/dsview/dsviewService-SessionMgmt.wsdl"/>
+        </java>
+
+        <!-- DSView Web Server Server Side Classes: Event -->
+        <java classname="org.apache.axis.wsdl.WSDL2Java" classpathref="libs" fork="yes" jvm="${JAVA_JVM}">
+            <arg value="-W"/>
+            <arg value="-a"/>
+            <arg value="--skeletonDeploy"/>
+            <arg value="true"/>
+            <arg value="-o"/>
+            <arg value="${srcDir}"/>
+            <arg value="${etcSrcDir}/wsdl/dsview/dsviewService-Event.wsdl"/>
+        </java>
+
+        <!-- DSView Web Server Server Side Classes: Unit -->
+        <java classname="org.apache.axis.wsdl.WSDL2Java" classpathref="libs" fork="yes" jvm="${JAVA_JVM}">
+            <arg value="-W"/>
+            <arg value="-a"/>
+            <arg value="--skeletonDeploy"/>
+            <arg value="true"/>
+            <arg value="-o"/>
+            <arg value="${srcDir}"/>
+            <arg value="${etcSrcDir}/wsdl/dsview/dsviewService-Unit.wsdl"/>
+        </java>
+        
+        <!-- DSView Web Server Server Side Classes: User -->
+        <java classname="org.apache.axis.wsdl.WSDL2Java" classpathref="libs" fork="yes" jvm="${JAVA_JVM}">
+            <arg value="-W"/>
+            <arg value="-a"/>
+            <arg value="--skeletonDeploy"/>
+            <arg value="true"/>
+            <arg value="-o"/>
+            <arg value="${srcDir}"/>
+            <arg value="${etcSrcDir}/wsdl/dsview/dsviewService-User.wsdl"/>
+        </java>
+        
+        <!-- DSView Web Server Server Side Classes: Metric -->
+        <java classname="org.apache.axis.wsdl.WSDL2Java" classpathref="libs" fork="yes" jvm="${JAVA_JVM}">
+            <arg value="-W"/>
+            <arg value="-a"/>
+            <arg value="--skeletonDeploy"/>
+            <arg value="true"/>
+            <arg value="-o"/>
+            <arg value="${srcDir}"/>
+            <arg value="${etcSrcDir}/wsdl/dsview/dsviewService-Metric.wsdl"/>
+        </java>
+    </target>
+
+    <!-- This target checks if the WSDL Auto Generated classes need regeneration. -->
+    <target name="chkwsdlautogen">
+        <condition property="wsdlAutoGen.notRequired">
+            <and>
+                <isset property="newToolsBuilt"/>
+                <uptodate targetfile="${srcDir}/com/avocent/osa/ipmi/IPMIProxy.java" srcfile="${etcSrcDir}/wsdl/ipmiappliance.wsdl"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/sessionMgmt/SessionMgmtServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/dsviewService-SessionMgmt.wsdl"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/events/EventServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/dsviewService-Event.wsdl"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/units/UnitServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/dsviewService-Unit.wsdl"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/users/UnitServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/dsviewService-User.wsdl"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/metric/MetricServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/dsviewService-Metric.wsdl"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/sessionMgmt/SessionMgmtServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/serviceComponent-SessionMgmt.xsd"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/events/EventServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/serviceComponent-Event.xsd"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/units/UnitServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/serviceComponent-Unit.xsd"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/metric/MetricServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/serviceComponent-Metric.xsd"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/users/UserServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/serviceComponent-User.xsd"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/sessionMgmt/SessionMgmtServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/serviceComponent-Common.xsd"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/events/EventServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/serviceComponent-Common.xsd"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/units/UnitServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/serviceComponent-Common.xsd"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/webservices/metric/MetricServiceInterface.java" srcfile="${etcSrcDir}/wsdl/dsview/serviceComponent-Common.xsd"/>
+            </and>
+        </condition>
+    </target>
+
+    <!-- Enables EMMA code coverage -->
+    <target name="coverage" depends="setupProperties" description="turns on EMMA instrumentation/reporting">
+        <!-- Delete instrumentation and coverage directories -->
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="${instrDir}" />
+        </delete>
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="${coverageDir}" />
+        </delete>   
+        <mkdir dir="${instrDir}" />
+        <mkdir dir="${coverageDir}" />     
+    </target>
+    
+    <target name="instrumentation" depends="setupProperties" description="instruments class files for code coverage">     
+        <emma enabled="true">
+            <instr destdir="${instrDir}"
+                 metadatafile="${coverageDir}/metadata.emma"
+                 merge="true" 
+                 instrpath="${outDir}">
+                  <filter excludes="*TEST*" />
+          </instr>
+        </emma>
+    </target>
+    
+    <!-- Bob: Tests data import digestor. Will eventually be rolled into unit testing. -->
+    <target name="digester-test" depends="init" >
+        <javac source="${JAVAC_SOURCE}" target="${JAVAC_TARGET}" executable="${JAVAC_EXE}" fork="yes" destdir="${outDir}" classpath="${outDir}" classpathref="libs" optimize="off" verbose="off" debug="on" includes="**.java">
+            <src path="${srcDir}" />
+            <include name="com/avocent/dsview/server/service/importer/generic/**/*.java" />
+        </javac>
+        <java classname="com.avocent.dsview.server.service.importer.generic.model.DigesterTest" 
+            classpath="${outDir}" classpathref="libs" failonerror="true" fork="yes" jvm="${JAVA_JVM}">
+             <arg value="${warDir}/WEB-INF/generic_import_schemas"/>
+             <arg value="${testSrcDir}/com/avocent/dsview/server/service/importer/generic/ImportTestData.xml"/>
+        </java>
+    </target>
+
+    <target name="coveragereport">
+        <antcall target="unittest">   
+            <param name="coverage.html.enabled" value="true"/>
+        </antcall>
+    </target>
+    
+    <!-- This target runs the JUnit test cases -->
+    <target name="unittest" depends="setupProperties,unittestclasses,coverage,instrumentation">
+        <mkdir dir="tmp" />
+        <mkdir dir="tmp/bin" />
+        <mkdir dir="tmp/etc" />
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="${junitDir}" />            
+        </delete>
+        <mkdir dir="${junitDir}" />   
+
+        <copy file="${compLibDir}/pbembedded.lic" tofile="tmp/etc/dsvdbase.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbunisync.lic" tofile="tmp/etc/dsvsync.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbupgrade.jar" tofile="tmp/etc/pbupgrade.jar" preservelastmodified="yes"/>
+        <java classname="GenerateProperties" classpath="${buildOutDir};${outDir}" classpathref="libs" failonerror="true" fork="yes" jvm="${JAVA_JVM}">
+            <arg value="tmp/bin"/>
+        </java>
+        
+        <java classname="junit.textui.TestRunner" classpath="${instrDir};${testOutDir};${outDir}" classpathref="libs" fork="yes" jvm="${JAVA_JVM}" failOnError="false" dir="tmp/bin">
+            <jvmarg value="-Demma.coverage.out.file=${coverageDir}/coverage.emma" /> 
+            <jvmarg value="-DrootDir=${rootDir}"/>
+            <arg value="TestSuiteAllTests"/>
+        </java>
+        
+        <emma enabled="true" >
+            <report sourcepath="${srcDir}" >
+               <fileset dir="${coverageDir}" >
+                  <include name="*.emma" />
+               </fileset>
+               <xml depth="package" outfile="${coverageDir}/coverage.xml" />
+            </report>
+        </emma>                
+        
+        <emma enabled="${coverage.html.enabled}" >
+            <report sourcepath="${srcDir}" >
+               <fileset dir="${coverageDir}" >
+                  <include name="*.emma" />
+               </fileset>
+               <html depth="method" outfile="${coverageDir}/coverage.html" />
+            </report>
+        </emma>      
+       
+        <delete>
+            <fileset dir="${coverageDir}">
+                <include name="*.emma"/>
+            </fileset>
+        </delete>
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="tmp" />
+        </delete>
+    </target>
+
+    <!--
+      Runs junit tests without doing coverage reports.
+      Pretty HTML test results can be found in junit-reports/html.
+      This target is handy for running quick junit testing in your IDE.
+    -->
+    <!--target name="junit" depends="setupProperties,unittestclasses" description="Execute Unit Tests"-->
+    <target name="junit" depends="setupProperties" description="Execute Unit Tests">
+<!--
+        <mkdir dir="tmp" />
+        <mkdir dir="tmp/bin" />
+        <mkdir dir="tmp/etc" />
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="${junitDir}" />
+        </delete>
+        <mkdir dir="${junitDir}" />
+        
+        <copy file="${compLibDir}/pbembedded.lic" tofile="tmp/etc/dsvdbase.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbunisync.lic" tofile="tmp/etc/dsvsync.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbupgrade.jar" tofile="tmp/etc/pbupgrade.jar" preservelastmodified="yes"/>
+        <java classname="GenerateProperties" classpath="${buildOutDir};${outDir}" classpathref="libs" failonerror="true" fork="yes" jvm="${JAVA_JVM}">
+            <arg value="tmp/bin"/>
+        </java>
+        
+        <junit printsummary="yes" showoutput="yes" fork="yes" dir="tmp/bin">
+            <sysproperty key="rootDir" value="${rootDir}"/>
+            <classpath>
+                <pathelement path="${testOutDir}"/>
+                <pathelement path="${outDir}"/>
+                <path refid="libs"/>
+            </classpath>
+            <formatter type="xml" />
+
+            <test fork="yes" name="TestSuiteAllTests" todir="${junitDir}"/>
+        </junit>
+
+        <junitreport todir="${junitDir}">
+            <fileset dir="${junitDir}">
+                <include name="**/TEST*.xml"/>
+            </fileset>
+            <report format="frames" todir="${junitDir}/html"/>
+        </junitreport>
+        
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="tmp" />
+        </delete>
+-->
+    </target>
+
+    <!-- This target compiles the JUnit test cases -->
+    <target name="unittestclasses" depends="classes">
+        <javac source="${JAVAC_SOURCE}" target="${JAVAC_TARGET}" executable="${JAVAC_EXE}" fork="yes" destdir="${testOutDir}" classpath="${outDir}" classpathref="libs" optimize="off"  verbose="off" debug="on" includes="**.java">
+            <src path="${testSrcDir}" />
+            <include name="**/*.java" />
+        </javac>
+        
+        <echo message="copy any XML file used by a test case"/>
+        <copy todir="${testOutDir}" preservelastmodified="yes">
+           <fileset dir="${testSrcDir}">
+              <include name="**/*.xml"/>
+           </fileset> 
+        </copy>
+        
+    </target>
+
+    <!-- This target builds the webapp -->
+    <target name="webapp" depends="applets,classes,eula">
+        <copy todir="${warDir}/WEB-INF/lib" preservelastmodified="yes">
+            <fileset dir="${compLibDir}">
+                <include name="pb*.jar"/>
+                <exclude name="pbupgrade.jar"/><!-- conflicts with other Pointbase JARs -->
+                <include name="standard.jar"/>
+                <include name="avctProtocols.jar"/>
+                <include name="saxpath.jar"/>
+                <include name="jstl.jar"/>
+                <include name="struts.jar"/>
+                <include name="struts-el.jar"/>
+                <include name="jcifs-*.jar"/>
+                <include name="joesnmp-1.1.jar"/>
+                <include name="jradius-client.jar"/>
+                <include name="commons-*.jar"/>
+                <include name="jakarta-oro.jar"/>
+                <include name="axis.jar"/>
+                <include name="hsqldb.jar"/>
+                <include name="log4j.jar"/>
+                <include name="saaj.jar"/>
+                <include name="jaxrpc.jar"/>
+                <include name="jax-qname.jar"/>
+                <include name="wsdl4j.jar"/>
+                <include name="radclient3.jar"/>
+                <include name="tacclient.jar"/>
+                <include name="jlanclient.jar"/>
+                <include name="jzlib.jar"/>
+                <include name="authapi.jar"/>
+                <include name="avctPKI.jar"/>
+                <include name="cryptix-jce-provider.jar"/>
+                <include name="maverick-sshd.jar"/>
+                <include name="bcprov-jdk14-133.jar"/>
+                <include name="tar.jar"/>
+                <include name="ehcache.jar"/>
+            </fileset>
+            <!-- Add javax.servlet.jar to Web-Inf/lib directory for plug-in to use-->
+            <fileset dir="${jettySrcDir}/lib">
+                <include name="javax.servlet.jar" />
+            </fileset>
+        </copy>
+
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDir}/mindterm.jar" dest="tmp"/>
+        <delete dir="tmp/META-INF"/>
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="tmp/com/jcraft/jzlib" />
+        </delete>
+        <delete file="${warDir}/WEB-INF/lib/mindterm.jar" failOnError="false"/>
+        <jar jarfile="${warDir}/WEB-INF/lib/mindterm.jar" basedir="tmp" compress="true">
+            <fileset dir="tmp"/>
+        </jar>
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="tmp" />
+        </delete>
+  
+        <jar update="true" compress="true" jarfile="${warDir}/WEB-INF/lib/dsview.jar">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Web Application"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+            <fileset dir="${outDir}">
+                <include name="**/*.class"/>
+                <include name="**/*.sql"/>
+                <include name="**/*.properties"/>
+                <exclude name="com/avocent/dsview/server/util/jetty/*"/>
+                <exclude name="com/avocent/dsview/server/util/HttpsConfiguration*.class"/>
+            </fileset>
+        </jar>
+        <copy todir="${warDir}/WEB-INF/etc" preservelastmodified="yes">
+            <fileset dir="${etcSrcDir}">
+                <include name="*.properties"/>
+            </fileset>
+        </copy>
+<!-- 
+     ###############################################################
+     # REMOVED HELP FILES FROM THE BUILD - requirement since 3.5.1 #
+     ###############################################################
+
+        <unzip src="${compLibDir}/en-help.zip" dest="${warDir}"/>
+        <unzip src="${compLibDir}/non-en-help.zip" dest="${warDir}"/>
+
+-->
+        <antcall target="viewergraphics"/>
+    </target>
+
+    <!-- This target generates the JavaDoc -->
+
+    <!-- <target name="javadoc" depends="dbautogen,wsdlautogen"> Temporary until build is working -->
+    <target name="javadoc" >
+        <!-- Commented out because classloader presents issues if initializer fails -->
+        <!-- java classname="DBBeanDocGen" classpath="${buildOutDir};${outDir}" classpathref="libs" fork="yes" failonerror="true">
+            <arg value="${etcSrcDir}/DSViewDB1_1.xml"/>
+            <arg value="${etcSrcDir}/beandoctemplate.xml"/>
+            <arg value="${docOutDir}/beandocs.html"/>
+        </java -->
+        <!-- Comment out again until heap space problem is fixed.
+        <delete includeEmptyDirs="true" failOnError="false" file="${buildDir}/javadoc.log"/>
+        <echo message="Executing JavaDoc. Suppressing Screen Output"/>
+        <java classname="org.apache.tools.ant.launch.Launcher" classpath="${buildOutDir};${outDir}" classpathref="buildLibs" fork="yes" jvm="${JAVA_JVM}" output="${buildDir}/javadoc.log" failonerror="true">
+            <arg value="-buildfile"/>
+            <arg value="${ant.file}"/>
+            <arg value="javadocloud"/>
+        </java>        
+        <echo message="Generated Javadoc. Logged in ${buildDir}/javadoc.log"/>
+        -->
+    </target>
+
+    <target name="javadocloud" depends="dbautogen,wsdlautogen">
+        <javadoc sourcepath="${srcDir}" destdir="${docOutDir}" packagenames="*" classpathref="libs" maxmemory="128M" access="package" additionalparam="-quiet -breakiterator -linksource" />
+    </target>
+
+    <!-- This target builds and JARs up the Jetty HTTPS Listener -->
+    <target name="jettyjar" depends="init">
+        <javac source="${JAVAC_SOURCE}" target="${JAVAC_TARGET}" executable="${JAVAC_EXE}" fork="yes" destdir="${outDir}" classpath="${outDir}" classpathref="libs" optimize="off"  verbose="off" debug="on" includes="**.java">
+            <src path="${srcDir}" />
+            <include name="com/avocent/dsview/server/util/jetty/*.java" />
+            <include name="com/avocent/dsview/server/auth/DSViewServerCredentials.java" />
+            <include name="com/avocent/dsview/server/util/DSViewServerProperties.java" />
+            <include name="com/avocent/dsview/server/util/KeyStoreHelper.java" />
+            <include name="com/avocent/dsview/server/util/HttpsConfiguration.java" />
+        </javac>
+    </target>
+
+    <!-- This target compiles the Mac OS classes for the videosessionmanagerMacOS.jar, and other Mac jars -->
+    <target name="classesMacOS" depends="init">        
+        <mkdir dir="${viewerMacOS}" />
+        <javac source="${JAVAC_SOURCE_MAC_OSX}" target="${JAVAC_TARGET_MAC_OSX}" executable="${JAVAC_EXE}" fork="yes" destdir="${viewerMacOS}" classpath="${outDir}" classpathref="libs" 
+               optimize="off"  verbose="off" debug="on"
+               memoryInitialSize="256M" memoryMaximumSize="512M">
+            <src path="${srcDir}\com\avocent\dsview\client\viewer" />
+            <include name="**/*.java" />
+        </javac>
+        <!-- copy files up to actual target dir and delete originals -->
+        <copy todir="${viewerMacOS}" preservelastmodified="yes" failOnError="false">
+            <fileset dir="${viewerMacOS}\com\avocent\dsview\client\viewer">
+                <exclude name="**/*.java*"/>
+            </fileset>
+        </copy>
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="${viewerMacOS}\com" />
+        </delete>
+             
+        <mkdir dir="${xmlrpcMacOS}" />
+        <javac source="${JAVAC_SOURCE_MAC_OSX}" target="${JAVAC_TARGET_MAC_OSX}" executable="${JAVAC_EXE}" fork="yes" destdir="${xmlrpcMacOS}" classpath="${outDir}" classpathref="libs" 
+               optimize="off"  verbose="off" debug="on"
+               memoryInitialSize="256M" memoryMaximumSize="512M">
+            <src path="${srcDir}\com\avocent\dsview\common\xmlrpc" />
+            <include name="**/*.java" />
+        </javac>
+        <!-- copy files up to actual target dir and delete originals -->
+        <copy todir="${xmlrpcMacOS}" preservelastmodified="yes" failOnError="false">
+            <fileset dir="${xmlrpcMacOS}\com\avocent\dsview\common\xmlrpc">
+                <exclude name="**/*.java*"/>
+            </fileset>
+        </copy>
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="${xmlrpcMacOS}\com" />
+        </delete>
+          
+        <mkdir dir="${telnetMacOS}" />
+        <javac source="${JAVAC_SOURCE_MAC_OSX}" target="${JAVAC_TARGET_MAC_OSX}" executable="${JAVAC_EXE}" fork="yes" destdir="${telnetMacOS}" classpath="${outDir}" classpathref="libs" 
+               optimize="off"  verbose="off" debug="on"
+               memoryInitialSize="256M" memoryMaximumSize="512M">
+            <src path="${srcDir}\com\avocent\dsview\client\telnet" />
+            <include name="**/*.java" />
+        </javac>
+        <!-- copy files up to actual target dir and delete originals -->
+        <copy todir="${telnetMacOS}" preservelastmodified="yes" failOnError="false">
+            <fileset dir="${telnetMacOS}\com\avocent\dsview\client\telnet">
+                <exclude name="**/*.java*"/>
+            </fileset>
+        </copy>
+        <!-- copy properties files into Mac telnet directory -->
+        <copy todir="${telnetMacOS}" preservelastmodified="yes" failOnError="false">
+            <fileset dir="${srcDir}\com\avocent\dsview\client\telnet">
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>        
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="${telnetMacOS}\com" />
+        </delete>
+    </target>
+    
+    <!-- This target compiles all classes and places it into the classes dir -->
+    <target name="classes" depends="dbautogen,wsdlautogen">
+        <javac source="${JAVAC_SOURCE}" target="${JAVAC_TARGET}" executable="${JAVAC_EXE}" fork="yes" destdir="${outDir}" classpath="${outDir}" classpathref="libs" 
+               optimize="off"  verbose="off" debug="on"
+               memoryInitialSize="256M" memoryMaximumSize="512M">
+            <src path="${srcDir}" />
+            <include name="**/*.java" />
+        </javac>
+        <copy todir="${outDir}" preservelastmodified="yes">
+            <fileset dir="${srcDir}">
+                <exclude name="**/*.java*"/>
+            </fileset>
+        </copy>
+        
+        <antcall target="classesMacOS"/>
+    </target>
+
+    <!-- This target precompiles all JSPs -->
+    <target name="jspprecompile" depends="chkjspgen,buildtools,webapp" unless="jspGen.notRequired">
+        <java classname="org.apache.jasper.JettyJspC" classpath="${buildOutDir};${outDir};${JDK_PATH}/jre/lib/tools.jar;${JDK_PATH}/lib/tools.jar" classpathref="libs" fork="yes" jvm="${JAVA_JVM}" failonerror="true">
+            <arg value="${warDir}"/>
+            <arg value="${warDir}/WEB-INF/jspclasses"/>
+        </java>
+    </target>
+
+    <!-- This target generates the database access classes -->
+    <target name="dbautogen" depends="buildtools,chkdbautogen" unless="dbAutoGen.notRequired">
+        <java classname="PBGenerator" classpath="${buildOutDir}" classpathref="libs" fork="yes" jvm="${JAVA_JVM}">
+            <arg value="${etcSrcDir}/DSViewDB.xml"/>
+            <arg value="${etcSrcDir}/beantemplate.xml"/>
+            <arg value="${srcDir}"/>
+        </java>
+        <copy file="${srcDir}/com/avocent/dsview/server/model/schema.sql" tofile="${outDir}/com/avocent/dsview/server/model/schema.sql" preservelastmodified="yes"/>
+    </target>
+
+    <!-- This target checks if the DB Auto Generated classes need regeneration. -->
+    <target name="chkdbautogen">
+        <condition property="dbAutoGen.notRequired">
+            <and>
+                <isset property="newToolsBuilt"/>
+                <uptodate targetfile="${srcDir}/com/avocent/dsview/server/model/schema.sql">
+                    <srcfiles dir= "${etcSrcDir}">
+                        <include name="DSViewDB.xml"/>
+                        <include name="beantemplate.xml"/>
+                    </srcfiles>
+                </uptodate>
+            </and>
+        </condition>
+    </target>
+
+    <!-- This target checks if the JSP files need recompilation. -->
+    <target name="chkjspgen" depends="buildtools">
+        <!-- Disabled due to JSPMapper availability issue  on 7/28/04 -->
+        <!--condition property="jspGen.notRequired">
+        <and>
+        <isset property="newToolsBuilt"/>
+        <uptodate>
+        <srcfiles dir= "${warDir}">
+        <include name="**/*.jsp"/>
+        </srcfiles>
+        <mapper classname="JSPMapper" to="WEB-INF/jspclasses"/>
+        </uptodate>
+        </and>
+        </condition-->
+    </target>
+
+    <!-- This target compiles the build tools -->
+    <target name="buildtools" depends="init">
+        <uptodate property="newToolsBuilt">
+            <srcfiles dir= "${buildSrcDir}">
+                <include name="**/*.java"/>
+            </srcfiles>
+            <mapper type="glob" from="*.java" to="../classes/*.class"/>
+        </uptodate>
+        <javac source="${JAVAC_SOURCE}" target="${JAVAC_TARGET}" executable="${JAVAC_EXE}" fork="yes" srcdir="${buildSrcDir}" destdir="${buildOutDir}" classpath="${buildOutDir}" classpathref="libs" optimize="off"  verbose="off" debug="on" includes="**.java">
+            <include name="**/*.java" />
+        </javac>
+    </target>
+
+    <!-- This target deletes all intermediate files and compget -->
+    <target name="fullclean" depends="clean">
+        <delete includeEmptyDirs="true" failOnError="false" dir="${compLibDir}" />
+    </target>
+
+    <!-- This target deletes all intermediate files -->
+    <target name="clean" depends="setupProperties,clean-reports">
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="${zkmDir}" />
+            <fileset dir="${srcDir}/com/avocent/dsview/server/model">
+                <include name="Abstract*.java"/>
+                <include name="schema.sql"/>
+            </fileset>
+            <fileset dir="${outDir}"/>
+            <fileset dir="win32/AuthenticatorNTDomain/Release"/>
+            <fileset dir="win32/AuthenticatorNTDomain/Debug"/>
+            <fileset dir="${buildOutDir}" />
+            <fileset dir="${warDir}/WEB-INF/lib" />
+            <fileset dir="${warDir}/WEB-INF/jspclasses" />
+            <fileset dir="${warDir}/WEB-INF/classes" />
+            <fileset dir="${jettyOutDir}">
+                <exclude name="bin/trace.properties"/>
+            </fileset>
+            <fileset dir="${docOutDir}" />
+            <fileset dir="${testOutDir}" />
+            <fileset dir="tmp" />
+            <fileset dir="${localizationDir}"/>            
+        </delete>
+    </target>
+
+    <!-- This target cleans up the junit-reports directory and the coverage directory -->
+    <target name="clean-reports" depends="setupProperties" >
+       <delete includeEmptyDirs="true" quiet="true" failOnError="false">
+          <fileset dir="${junitDir}"/>
+          <fileset dir="${coverageDir}"/>          
+       </delete>
+    </target>
+    
+    <!-- This target outputs a header with version and build information -->
+    <target name="header" depends="setupProperties">
+        <echo message="-----------------------------------------------------"/>
+        <echo message="---------------- Building DSView 3.x ----------------"/>
+        <echo message="-----------------------------------------------------"/>
+        <echo message="Implementation-Title: ${ant.project.name}"/>
+        <echo message="Implementation-Version: ${build.version}"/>
+        <echo message="Implementation-Vendor: ${corp.name}"/>
+        <echo message="Specification-Title: ${java.specification.name}"/>
+        <echo message="Specification-Version: ${java.version}"/>
+        <echo message="Specification-Vendor: ${java.vendor}"/>
+        <echo message="Ant-Version: ${ant.version}"/>
+        <echo message="Build-Date: ${build.time}"/>
+        <echo message="Build-User: ${user.name}"/>
+        <echo message="Build-File: ${ant.file}"/>
+        <echo message="Build-Platform: ${os.name} ${os.version}(${os.arch})"/>
+        <echo message="Build-Location: ${prefix}"/>
+        <echo message="CopyrightNotice: Copyright (c) 1996-${build.year} ${corp.name}"/>
+        <echo message="-----------------------------------------------------"/>
+    </target>
+
+    <!-- This target prepares the build environment -->
+    <!--Don't remove comlib directory by tom on 6/16/2011
+    <target name="init" depends="setupProperties,updateLibs,chkLibs,compget">
+    -->
+    <target name="init" depends="setupProperties,updateLibs,chkLibs">
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        <mkdir dir="${outDir}" />
+        <mkdir dir="${buildOutDir}" />
+        <mkdir dir="${warDir}/WEB-INF/lib" />
+        <mkdir dir="${warDir}/WEB-INF/jspclasses" />
+        <mkdir dir="${warDir}/WEB-INF/etc" />
+        <mkdir dir="${compMibDir}" />
+        <mkdir dir="${jettyOutDir}/bin" />
+        <mkdir dir="${docOutDir}" />
+        <mkdir dir="${testOutDir}" />
+        <mkdir dir="${jettyOutDir}/data/files" />
+        <mkdir dir="${jettyOutDir}/ext" />
+        <mkdir dir="${jettyOutDir}/datalogs" />
+        <mkdir dir="${imageDir}" />
+	    <mkdir dir="${jettyOutDir}/scripts"/>
+        <mkdir dir="${stestDir}" />        
+        
+        <!-- Create main classpath variable -->
+        <path id="libs">
+            <fileset dir="${compLibDir}">
+                <include name="*.jar"/>
+                <include name="*.zip"/>
+
+                <!-- The Telnet applet jar contains older versions of avctUtil classes. -->
+                <exclude name="serialconsoleviewer.jar"/>
+
+                <!-- The pbupgrade.jar is used by pointbase during upgrades from pre 5.1 versions and contains clonfliucting classes with other pointbase JARs. -->
+                <exclude name="pbupgrade.jar"/>
+            </fileset>
+            <fileset dir="${libDir}">
+                <include name="*.jar"/>
+                <include name="*.zip"/>
+            </fileset>
+            <fileset dir="${jettySrcDir}/lib">
+                <include name="*.jar"/>
+                <include name="*.zip"/>
+            </fileset>
+            <fileset dir="${jettySrcDir}/ext">
+                <include name="*.jar"/>
+                <include name="*.zip"/>
+            </fileset>
+            <fileset dir="${buildLibDir}">
+                <include name="*.jar"/>
+                <include name="*.zip"/>
+            </fileset>
+            <filelist dir="${JDK_PATH}/jre/lib" files="plugin.jar" />
+            <filelist dir="${JDK_PATH}/lib" files="tools.jar" />       
+        </path>
+    </target>
+
+    <!-- This target checks if the build file is newer than the complibs dir -->
+    <target name="chkLibs" unless="chklibs.notRequired">
+        <uptodate targetfile="${compLibDir}/lastGet" 
+                  srcfile="${buildDir}/settings/project.properties" property="libs.new"/>
+    </target>
+
+    <!-- This target forces a compget to occur. The do.clean.cc.build property   -->
+    <!-- is set by cruisecontrol after it detects changes to the components thus -->
+    <!-- forcing components to be reloaded before building Dsview.               -->
+    <target name="updateLibs" if="do.clean.cc.build">
+        <touch file="${buildDir}/settings/project.properties" />
+    </target>
+
+    <!-- This target gets the complib JAR files out of SourceSafe -->
+
+    <target name="compget" depends="setupProperties" unless="libs.new">
+        <echo message="Retrieving Components via CompGet. Suppressing Screen Output, logging instead to ${buildDir}/compget.log"/>
+        <delete includeEmptyDirs="true" failOnError="false" file="${buildDir}/compget.log"/>
+        <java classname="org.apache.tools.ant.launch.Launcher" classpath="${buildOutDir};${outDir}" classpathref="buildLibs" fork="yes" jvm="${JAVA_JVM}" output="${buildDir}/compget.log" failonerror="true">
+            <arg value="-buildfile"/>
+            <arg value="${ant.file}"/>
+            <arg value="compgetloud"/>
+        </java>
+        
+        <!-- get the components needed to build Macintosh executables -->
+        
+        <!-- move the zip files with Mac.zip suffixes from the standard components dir to the Mac components dir, renaming on the way -->
+        <delete includeEmptyDirs="true" failOnError="false" dir="${compLibDirMacOS}" />
+        <mkdir dir="${compLibDirMacOS}" />
+        <!-- copy over all the standard components -->
+        <copy todir="${compLibDirMacOS}">
+            <fileset dir="${compLibDir}">
+                <include name="**.*" />
+            </fileset>
+        </copy>
+        
+        <!-- overwrite standard components with Mac-specific components, leaving the rest in place -->
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        <mkdir dir="tmp" />
+        <echo message="Utilities.Protocols Mac version" />
+        <getComponent src="${comp.avctProtocols.path}" dst="tmp" ver="${comp.avctProtocolsMac}" />
+        <echo message="Utilities.GUI Mac version" />        
+        <getComponent src="${comp.avctGUI.path}" dst="tmp" ver="${comp.avctGUIMac}" />
+        <echo message="Utilities.Network Mac version" />        
+        <getComponent src="${comp.avctNet.path}" dst="tmp" ver="${comp.avctNetMac}" />
+        <echo message="Utilities.Util Mac version" />        
+        <getComponent src="${comp.avctUtil.path}" dst="tmp" ver="${comp.avctUtilMac}" />
+        <echo message="Utilities.ViewerApi Mac version" />        
+        <getComponent src="${comp.avctViewerApi.path}" dst="tmp" ver="${comp.avctViewerApiMac}" />
+        <echo message="Utilities.JavaVncViewer Mac version" />        
+        <getComponent src="${comp.common-vnc.path}" dst="tmp" ver="${comp.avctJavaVncViewerMac}" />
+        <echo message="avctSSH2Client Mac version" />        
+        <getComponent src="${comp.avctSSH2Client.path}" dst="tmp" ver="${comp.avctSSH2ClientMac}" />
+        
+        <copy todir="${compLibDirMacOS}" preservelastmodified="yes" overwrite="true">
+            <fileset dir="tmp">
+                <include name="avctProtocols.jar"/>
+                <include name="avctGUI.jar"/>
+                <include name="avctNet.jar"/>
+                <include name="avctUtil.jar"/>
+                <include name="avctViewerApi.jar"/>
+                <include name="avctVncViewer.jar"/>
+                <include name="serialconsoleviewer.jar"/>
+            </fileset>
+        </copy>
+        
+        <touch file="${compLibDir}/lastGet"/>
+        <echo message="Components Retrieved Successfully."/>
+    </target>
+
+  
+    <target name="compgetResources" depends="setupProperties">
+        <delete includeEmptyDirs="true" failOnError="false" dir="${localizationDir}" />
+        <mkdir dir="${localizationDir}" />
+        <getComponentResource src="${comp.components.path}" dst="${localizationDir}" ver="${comp.components.resource}" />
+        <getComponentResource src="${comp.java.avctVMviewer.path}" dst="${localizationDir}" ver="${comp.java.avctVMviewer.resource}" />
+	  <getComponentResource src="${comp.mfc.avctVMviewer.path}" dst="${localizationDir}" ver="${comp.mfc.avctVMviewer.resource}" />
+        <getComponentResource src="${comp.java.avctVideo.path}" dst="${localizationDir}" ver="${comp.java.avctVideo.resource}" />
+        <getComponentResource src="${comp.mfc.avctVideo.path}" dst="${localizationDir}" ver="${comp.mfc.avctVideo.resource}" />
+        <getComponentResource src="${comp.win32.serial.path}" dst="${localizationDir}" ver="${comp.win32.serial.resource}" />
+        <getComponentResource src="${comp.win32.vnc.path}" dst="${localizationDir}" ver="${comp.win32.vnc.resource}" />
+        <getComponentResource src="${comp.rdp.path}" dst="${localizationDir}" ver="${comp.rdp.resource}" />
+        <!-- DSView resource files -->
+        <copy todir="${localizationDir}" preservelastmodified="yes">
+            <fileset dir="${libDir}">
+                <include name="*.zip"/>
+                <exclude name="res_translations.zip"/>
+             </fileset>
+        </copy>        
+  
+    </target>
+
+    
+   <!-- This target zips all resource files for translation -->
+    <target name="packageCalendarResources" depends="init">
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        <mkdir dir="tmp/CalendarRes" />        
+
+        <!-- These files are from the calendar folder -->
+        <copy todir="tmp/CalendarRes">
+            <fileset dir="dsview/common/calendar/">
+                <include name="**/calendar-en.js"/>                
+            </fileset>    
+        </copy>
+
+        <delete includeEmptyDirs="true" failOnError="true">
+            <fileset dir="tmp">
+                <include name="vssver.scc"/>                
+            </fileset>
+        </delete>
+        <zip basedir="tmp/CalendarRes" destfile="lib/calendar_resources.zip"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+    </target>     
+    
+    <!-- Collect all DSView dependent projects for translation -->
+ 
+    <target name="packageAllDSViewResources" depends="setupProperties, packageResources, compgetResources, packageCalendarResources">
+        <zip zipfile="${localizationDir}/dsview-resources.zip" compress="yes">
+            <fileset dir="${localizationDir}">
+                <include name="*.zip" />
+            </fileset>
+        </zip>    
+    </target>
+ 
+    
+    <target name="compgetloud" depends="setupProperties" unless="libs.new">
+        <delete includeEmptyDirs="true" failOnError="false" dir="${compLibDir}" />
+        <mkdir dir="${compLibDir}" />
+
+        <!-- Get The Avocent Protocols and libraries-->
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        <mkdir dir="tmp" />
+        <echo message="Utilities.Protocols" />
+        <getComponent src="${comp.avctProtocols.path}" dst="tmp" ver="${comp.avctProtocols}" />
+        <echo message="Utilities.Database" />        
+        <getComponent src="${comp.avctDB.path}" dst="tmp" ver="${comp.avctDB}" />
+        <echo message="Utilities.GUI" />        
+        <getComponent src="${comp.avctGUI.path}" dst="tmp" ver="${comp.avctGUI}" />
+        <echo message="Utilities.Network" />        
+        <getComponent src="${comp.avctNet.path}" dst="tmp" ver="${comp.avctNet}" />
+        <echo message="Utilities.PKI" />        
+        <getComponent src="${comp.avctPKI.path}" dst="tmp" ver="${comp.avctPKI}" />
+        <echo message="Utilities.Util" />        
+        <getComponent src="${comp.avctUtil.path}" dst="tmp" ver="${comp.avctUtil}" />
+        <echo message="Utilities.ViewerApi" />        
+        <getComponent src="${comp.avctViewerApi.path}" dst="tmp" ver="${comp.avctViewerApi}" />
+        <echo message="Utilities.ZipArchive" />        
+        <getComponent src="${comp.avctZipArchive.path}" dst="tmp" ver="${comp.avctZipArchive}" />
+
+        <copy todir="${compLibDir}" preservelastmodified="yes">
+            <fileset dir="tmp">
+                <include name="avctProtocols.jar"/>
+                <include name="avctDB.jar"/>
+                <include name="avctGUI.jar"/>
+                <include name="avctNet.jar"/>
+                <include name="avctUtil.jar"/>
+                <include name="avctPKI.jar"/>
+                <include name="avctViewerApi.jar"/>
+                <include name="avctNet.dll"/>
+                <include name="libavctNet.so.solaris" />
+                <include name="libavctNet.so.linux" />
+                <include name="libZipArchiveWrapper.so.solaris" />
+                <include name="libZipArchiveWrapper.so.linux" />
+            </fileset>
+        </copy>
+        
+        <!-- Deal with Unzipping and copying the VideoViwer and VM components -->
+        <echo message="Video Viewer Component" />        
+        <getComponent src="${comp.java.avctVideo.path}" dst="tmp" ver="${comp.java.avctVideo}"  />
+        <echo message="Java VM Viewer Component" />        
+        <getComponent src="${comp.java.avctVMviewer.path}" dst="tmp" ver="${comp.java.avctVMviewer}" />
+ 	  <getComponent src="${comp.mfc.avctVMviewer.path}" dst="tmp" ver="${comp.mfc.avctVMviewer}" />
+
+
+        <copy todir="${compLibDir}" preservelastmodified="yes">
+            <fileset dir="tmp">
+                <include name="avctVideo.jar"/>
+                <include name="acvvWin32*.dll"/>
+                <include name="libavct*.so" />
+                <include name="libavct*.jnilib" />
+                <include name="avctVM.jar"/>
+                <include name="avmWin32*.dll"/>
+                <include name="libavm*.so" />
+                <include name="libavm*.jnilib" />
+            </fileset>
+        </copy>
+        
+        <!-- Get The Remaining Components -->
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        <mkdir dir="tmp" />
+        <echo message="Telnet Component" />        
+        <getComponent src="${comp.common-telnet.path}" dst="tmp" ver="${comp.common-telnet}" />
+        <echo message="VNC Viewer Component" />        
+        <getComponent src="${comp.common-vnc.path}" dst="tmp" ver="${comp.common-vnc}" />
+        <echo message="Launchers Component" />        
+        <getComponent src="${comp.launchers.path}" dst="tmp" ver="${comp.launchers}" />
+        <getAvocent src="${comp.directcommand.path}" dst="tmp" ver="${comp.directcommand.ver}" />
+        <getAvocent src="${comp.webstart.path}" dst="tmp" ver="${comp.webstart.ver}" />    
+        
+        <!-- 3rd Party Components -->
+
+        <get3rdParty src="${comp.pointbase.path}" dst="tmp" ver="${comp.pointbase.ver}" />
+        <get3rdParty src="${comp.jcifs.path}" dst="tmp" ver="${comp.jcifs.ver}" />
+        <get3rdParty src="${comp.axis.path}" dst="tmp" ver="${comp.axis.ver}" />
+        <get3rdParty src="${comp.joesnmp.path}" dst="tmp" ver="${comp.joesnmp.ver}" />
+        <get3rdParty src="${comp.jstl.path}" dst="tmp" ver="${comp.jstl.ver}" />
+        <get3rdParty src="${comp.jnlp.path}" dst="tmp" ver="${comp.jnlp.ver}" />
+        <get3rdParty src="${comp.struts.path}" dst="tmp" ver="${comp.struts.ver}" />
+        <get3rdParty src="${comp.commons-pool.path}" dst="tmp" ver="${comp.commons-pool.ver}" />
+        <get3rdParty src="${comp.commons-discovery.path}" dst="tmp" ver="${comp.commons-discovery.ver}" />
+        <get3rdParty src="${comp.commons-logging.path}" dst="tmp" ver="${comp.commons-logging.ver}" />
+        <get3rdParty src="${comp.commons-beanutils.path}" dst="tmp" ver="${comp.commons-beanutils.ver}" />
+        <get3rdParty src="${comp.commons-collections.path}" dst="tmp" ver="${comp.commons-collections.ver}" />
+        <get3rdParty src="${comp.mindterm.path}" dst="tmp" ver="${comp.mindterm.ver}" />
+        <get3rdParty src="${comp.axl.radius.path}" dst="tmp" ver="${comp.axl.radius.ver}" /> 
+        <get3rdParty src="${comp.axl.tacacs.path}" dst="tmp" ver="${comp.axl.tacacs.ver}" /> 
+        <get3rdParty src="${comp.jlan.path}" dst="tmp" ver="${comp.jlan.ver}" />
+        <get3rdParty src="${comp.jzlib.path}" dst="tmp" ver="${comp.jzlib.ver}" />
+        <get3rdParty src="${comp.saaj.path}" dst="tmp" ver="${comp.saaj.ver}" />
+        <get3rdParty src="${comp.jaxrpc.path}" dst="tmp" ver="${comp.jaxrpc.ver}" />
+        <get3rdParty src="${comp.jaxqname.path}" dst="tmp" ver="${comp.jaxqname.ver}" />
+        <get3rdParty src="${comp.log4j.path}" dst="tmp" ver="${comp.log4j.ver}" />
+        <get3rdParty src="${comp.rsa.authagent.authapi.path}" dst="tmp" ver="${comp.rsa.authagent.authapi.ver}" />
+        <get3rdParty src="${comp.maverick.sshd.path}" dst="tmp" ver="${comp.maverick.sshd.ver}" />
+        <get3rdParty src="${comp.bouncycastle.path}" dst="tmp" ver="${comp.bouncycastle.ver}" />
+        <get3rdParty src="${comp.jpcsc.path}" dst="tmp" ver="${comp.jpcsc.ver}" />
+        <get3rdParty src="${comp.ice.tar.path}" dst="tmp" ver="${comp.ice.tar.ver}" />
+        <get3rdParty src="${comp.ehcache.path}" dst="tmp" ver="${comp.ehcache.ver}" />
+       
+        <getAvocent src="${comp.dsview2xMigration.path}" dst="tmp" ver="${comp.dsview2xMigration.ver}" />
+        <getAvocent src="${license.path}" dst="tmp" ver="${license.ver}" />
+
+        
+        <copy todir="tmp">
+            <fileset dir="${COMPLIB}/${comp.launchers.path}" />
+        </copy>
+        
+        <copy todir="${compLibDir}" preservelastmodified="yes">
+            <fileset dir="tmp">
+                <include name="*.jar"/>
+                <include name="*.cab"/>
+                <include name="*.msi"/>
+                <include name="*.ver"/>
+                <include name="*.xpi"/>
+                <include name="*.ver"/>
+                <include name="*.dll"/>
+                <include name="*.so"/>
+                <include name="*.jnilib"/>
+                <include name="*.txt"/>
+                <include name="pb*.lic"/>
+            </fileset>
+        </copy>
+        
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+
+        <!-- Pull In Mibs -->
+        <mkdir dir="tmp" />
+        <echo message="Mibs.MibII" />        
+        <getComponent src="${comp.mibs.MibII.path}" dst="tmp" ver="${comp.mibs.MibII}" />
+        <echo message="Mibs.DSR" />          
+        <getComponent src="${comp.mibs.DSR.path}" dst="tmp" ver="${comp.mibs.DSR}" />
+        <echo message="Mibs.DS1800" />          
+        <getComponent src="${comp.mibs.DS1800.path}" dst="tmp" ver="${comp.mibs.DS1800}" />
+        <echo message="Mibs.CPS" />          
+        <getComponent src="${comp.mibs.CPS.path}" dst="tmp" ver="${comp.mibs.CPS}" />
+        <echo message="Mibs.CCM" />          
+        <getComponent src="${comp.mibs.CCM.path}" dst="tmp" ver="${comp.mibs.CCM}" />
+
+        <copy todir="${compMibDir}" preservelastmodified="yes">
+            <fileset dir="tmp">
+                <include name="*.xml"/>
+            </fileset>
+        </copy>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+
+        <!-- Get The Keystore... The * is there in the name because sourcesafe cannot get individual files that start with
+        a period from the command line interface.  -->
+        <mkdir dir="tmp" />
+<!--
+     ###############################################################
+     # REMOVED HELP FILES FROM THE BUILD - requirement since 3.5.1 #
+     ###############################################################
+        <get3rdparty-keepzip src="${MSD.REPOSITORY}${help.en.path}" dst="tmp" />
+        <move file="tmp/${help.en.ver}.zip" tofile="${compLibDir}/en-help.zip" />
+        <get3rdparty-keepzip src="${MSD.REPOSITORY}${help.non-en.path}" dst="tmp" />
+        <move file="tmp/${help.non-en.ver}.zip" tofile="${compLibDir}/non-en-help.zip" />
+-->
+        <!-- Directly move these file from SVN to complib -->
+        <exec executable="cmd.exe">
+           <arg value='/c svn export --force --username ${svn.user} --password ${svn.password} --no-auth-cache "${MSD.REPOSITORY}${keystore.path}" "${compLibDir}"/' />
+        </exec>
+        <exec executable="cmd.exe">
+           <arg value='/c svn export --force --username ${svn.user} --password ${svn.password} --no-auth-cache "${MSD.REPOSITORY}${authenticode.path}" "${compLibDir}"/' />
+        </exec>
+
+    </target>
+
+ 
+    <macrodef name="get3rdparty-keepzip">
+       <attribute name="src" />
+       <attribute name="dst" />
+
+       <sequential>
+          <exec executable="cmd.exe">
+             <arg value='/c svn export --force --username ${svn.user} --password ${svn.password} --no-auth-cache "@{src}" "@{dst}"/' />
+          </exec>
+       </sequential> 
+    </macrodef>
+
+    <target name="win32" unless="win32.notRequired" >
+        <exec executable="nmake" dir="win32/AuthenticatorNTDomain" failonerror="true" newenvironment="true" vmlauncher="false">
+            <arg line="/f AuthenticatorNTDomain.mak all"/>
+            <env key="PATH" path="${VC6MSDevDir}\\BIN;${VC6MSVCDir}\\BIN;${VC6VSCommonDir}\\TOOLS\\${VC6VcOsDir};\\${VC6VSCommonDir}\\TOOLS;"/>
+            <env key="INCLUDE" path="${VC6MSVCDir}\\ATL\\INCLUDE;${VC6MSVCDir}\\INCLUDE;${VC6MSVCDir}\\MFC\\INCLUDE;${DevTools}\\j2sdk1.4.2_02\\include;${DevTools}\\j2sdk1.4.2_02\\include\\win32"/>
+            <env key="LIB" path="${VC6MSVCDir}\\LIB;${VC6MSVCDir}\\MFC\\LIB"/>
+            <env key="CFG" value="AuthenticatorNTDomain - Win32 Release"/>
+        </exec>
+        <copy file="win32\AuthenticatorNTDomain\Release\AuthenticatorNTDomain.dll" todir="${jettyOutDir}\\bin" preservelastmodified="yes"/>
+    </target>
+
+    <target name="dotNet" depends="init, ZipArchiveWrapperDLL, BackupRestore,RasClientJniDLL,OtpScriptingDLL" />
+
+    <target name="BackupRestore" unless="dotNet.notRequired">
+        <vc7 compilerfolder  = "${VC7DevEnvDir}"
+        projectrootfolder = "win32"
+        projectfolder     = "BackupRestore"
+        project	       = "DSViewBackupRestore"
+        buildmode         = "release"
+        logfile	       = "${prefix}\BackupRestore.log"
+        failonerror       = "false"
+        />
+        <copy file="win32\BackupRestore\Release\DSViewBackupRestore.exe" todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes"/>
+        <copy todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes" >
+            <fileset dir="win32\BackupRestore\lib">
+                <include name="*.dll"/>
+            </fileset>
+        </copy>
+        <copy todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes" >
+            <fileset dir="win32\BackupRestore\Release">
+                <include name="*.dll"/>
+            </fileset>
+        </copy>
+        <copy todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes" >
+            <fileset dir="${DevTools}\VS_NET\DLLs">
+                <include name="mfc*.dll"/>
+                <include name="msv*.dll"/>
+            </fileset>
+        </copy>
+        <copy file="win32\BackupRestore\backuplist.properties" todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes"/>
+    </target>
+
+    <target name="jniHeader" depends="setupProperties">
+         <javah outputFile="${rasClientJNIDir}/WinDialupWorker.h" classpath="${prefix}\classes">
+           <class name="com.avocent.dsview.server.service.dialup.WinDialupWorker"/>
+        </javah>             
+    </target>
+    
+	<!---    
+	    <target name="RasClientJniDLL" depends="setupProperties" unless="dotNet.notRequired">
+	        <vc7 compilerfolder  = "${VC7DevEnvDir.2003}"
+	        projectrootfolder    = "win32"
+	        projectfolder        = "RasClientJNI"
+	        project	             = "RasClientJNI"
+	        buildmode            = "release"
+	        logfile	             = "${prefix}\RasClientJNI.log"
+	        failonerror          = "true"
+	        />
+	        <copy file="win32\RasClientJNI\Release\RasClientJNI.dll" todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes"/>
+	        <copy file="win32\RasClientJNI\Release\RasClientJNI.lib" todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes"/>
+	 -->   
+		
+	<target name="RasClientJniDLL" depends="setupProperties" unless="dotNet.notRequired">
+	        <copy file="\\sun-scm\share\ras\RasClientJNI.dll" todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes"/>
+	        <copy file="\\sun-scm\share\ras\RasClientJNI.lib" todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes"/>
+	</target>
+	    	
+    <target name="OtpScriptingDLL" depends="setupProperties" unless="dotNet.notRequired">
+        <vc7 compilerfolder  = "${VC7DevEnvDir.2003}"
+        projectrootfolder    = "win32"
+        projectfolder        = "OtpScripting"
+        project	             = "OtpScripting"
+        buildmode            = "release"
+        logfile	             = "${prefix}\OtpScripting.log"
+        failonerror          = "true"
+        />
+        <copy file="win32\OtpScripting\Release\OtpScripting.dll" todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes"/>
+        <copy file="win32\OtpScripting\Release\OtpScripting.lib" todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes"/>
+    </target>    
+    
+    <target name="ZipArchiveWrapperDLL" unless="dotNet.notRequired">
+        <vc7 compilerfolder  = "${VC7DevEnvDir.2003}"
+        projectrootfolder = "win32"
+        projectfolder     = "ZipArchiveWrapper"
+        project	        = "ZipWrapper"
+        buildmode         = "release"
+        logfile	        = "${prefix}\ZipWrapper.log"
+        failonerror       = "false"
+        />
+        <copy file="win32\ZipArchiveWrapper\Release\ZipArchiveWrapper.dll" todir="${jettyOutDir}\\bin" preservelastmodified="yes" overwrite="yes"/>
+    </target>
+
+    <!-- Target Step to build native Linux libraries and copy linux scripts -->
+    <target name="openos" unless="openos.notRequired" depends="init">
+        <echo message="Open O/S (Linux/Solaris) Build"/>
+
+        <copy file="win32/BackupRestore/backuplist.properties" todir="${jettyOutDir}/bin"
+        preservelastmodified="yes" overwrite="yes"/>
+
+        <!-- Modify the backup/restore script for linux -->
+        <loadfile property="linux-backup.text" srcFile="open_os/common/scripts/DSViewBackupRestore.sh">
+            <filterchain>
+                <replacetokens>
+                    <token key="SHELL" value="${linux.shell}"/>
+                    <token key="PATH" value="${linux.path}"/>
+                </replacetokens>
+            </filterchain>
+        </loadfile>
+        <echo message="${linux-backup.text}" file="${jettyOutDir}/bin/DSViewBackupRestore.sh.linux"/>
+        
+         <!-- Modify the backup/restore script for solaris -->
+        <loadfile property="solaris-backup.text" srcFile="open_os/common/scripts/DSViewBackupRestore.sh">
+            <filterchain>
+                <replacetokens>
+                    <token key="SHELL" value="${solaris.shell}"/>
+                    <token key="PATH" value="${solaris.path}"/>
+                </replacetokens>
+            </filterchain>
+        </loadfile>
+        <echo message="${solaris-backup.text}" file="${jettyOutDir}/bin/DSViewBackupRestore.sh.solaris"/>
+        
+        <!-- Modify the start/stop/script script for linux -->
+        <loadfile property="linux-service.text" srcFile="open_os/common/scripts/dsviewserver.sh">
+            <filterchain>
+                <replacetokens>
+                    <token key="VERSION" value="${build.version}"/>
+                    <token key="SHELL" value="${linux.shell}"/>
+                    <token key="PATH" value="${linux.path}"/>
+                    <token key="LISTENCMD" value="${linux.listencmd}"/>
+                    <token key="ECHO" value="${linux.echo}"/>
+                    <token key="LOGGERTAG" value="${linux.loggertag}"/>
+                </replacetokens>
+            </filterchain>
+        </loadfile>
+        <echo message="${linux-service.text}" file="${jettyOutDir}/bin/dsviewserver.linux"/>
+    
+        <!-- Modify the start/stop/script script for solaris -->
+        <loadfile property="solaris-service.text" srcFile="open_os/common/scripts/dsviewserver.sh">
+            <filterchain>
+                <replacetokens>
+                    <token key="VERSION" value="${build.version}"/>
+                    <token key="SHELL" value="${solaris.shell}"/>
+                    <token key="PATH" value="${solaris.path}"/>
+                    <token key="LISTENCMD" value="${solaris.listencmd}"/> 
+                    <token key="ECHO" value="${solaris.echo}"/> 
+                    <token key="LOGGERTAG" value="${solaris.loggertag}"/>
+                </replacetokens>
+            </filterchain>
+        </loadfile>
+        <echo message="${solaris-service.text}" file="${jettyOutDir}/bin/dsviewserver.solaris"/>
+        <copy file="open_os/solaris/scripts/dsviewserverrc" todir="${jettyOutDir}/bin"
+        preservelastmodified="yes" overwrite="yes"/>
+
+        <!-- Convert files into unix format -->
+        <fixcrlf srcdir="${jettyOutDir}/bin" eol="unix" includes="**/*.sh"/>
+        <fixcrlf srcdir="${jettyOutDir}/bin" eol="unix" includes="**/*.properties"/>
+        <fixcrlf srcdir="${jettyOutDir}/bin" eol="unix" includes="**/dsviewserver"/>
+        <fixcrlf srcdir="${jettyOutDir}/bin" eol="unix" includes="**/dsviewserver.*"/>
+        <fixcrlf srcdir="${jettyOutDir}/bin" eol="unix" includes="**/dsviewserverrc"/>
+        <fixcrlf srcdir="${jettyOutDir}/bin" eol="unix" includes="**/DSViewBackupRestore.sh.*"/>
+
+    </target>
+
+    <target name="signJavaCab" description="Signs jre cab. Should be run only during development." >
+        <exec executable="cmd">
+            <arg line="/c start ${buildDir}/signActiveX.vbs" />
+        </exec>
+        <exec executable="${DevTools}/VS_NET/FrameworkSDK/bin/signcode" failonerror="true">
+            <arg line="-v ${compLibDir}\${authenticode.pvk}
+            -spc ${compLibDir}\${authenticode.spc}
+            -t http://timestamp.verisign.com/scripts/timstamp.dll
+            ${warDir}/applets/j2re-win32.cab"/>
+        </exec>
+    </target>
+    
+
+    <!-- Target used to build and deploy dsview nightly build  -->
+     <target name="deploy" unless="${deploy.dir}" depends="setupProperties, packageResources, packageCalendarResources,packageAllDSViewResources" description="deploy nightly build results">
+        <echo>deploy.dir=${deploy.dir}</echo>
+        <delete includeEmptyDirs="true" failOnError="false" dir="${deploy.dir}" />
+        <mkdir dir="${deploy.dir}" />
+        <copy todir="${deploy.dir}" preservelastmodified="yes">
+            <fileset dir="${eqxOutDir}" />
+       
+            <fileset file="${localizationDir}/dsview-resources.zip"/>
+     
+        </copy>
+        <setBuildInfo dstdir="${deploy.dir}" />
+    </target>
+
+    <target name="eqxBuild" depends="header,fullclean,labeled,zipPackage"/>
+
+    <target name="nightlyBuild" depends="header,fullclean,labeled,javadoc,zipPackage"/>
+
+    <!-- Tars the files deployed to DSView demo machine -->
+    <target name="tarPackage" depends="setupProperties" description="Tars the nightly build. Deployed to DSView builds">
+        <!-- The nightly build machine requires the date to be appended to the version -->
+        <!-- therefore, date is appended before tar process. Afterwards, manifest.mf   -->
+        <!-- is restored to original value.                                            -->
+        <manifest file="${buildDir}\MANIFEST.MF" mode="update">
+            <attribute name="Implementation-Version" value="${build.version} ${build.dow.time}" /> 
+        </manifest>
+                        
+        <tar destfile="${dsview.demo.package}" longfile="gnu" compression="bzip2">
+            <tarfileset dir="${buildDir}" prefix="build">
+                <include name="MANIFEST.MF" />
+            </tarfileset>
+            <tarfileset dir="${eqxOutDir}" prefix="eqxOutput">
+                <include name="linux-unobfuscated.zip" />
+            </tarfileset>
+            <tarfileset dir="${docOutDir}" prefix="doc" />
+           
+            <!-- Currently, no targets exist which generate these log files.   -->
+            <!-- CruiseControl calls this target after creating the log files. -->
+            <tarfileset dir="${basedir}" >
+                <include name="ant_build.log" />
+                <include name="vss_history.log" />
+            </tarfileset>
+        </tar>
+        
+        <!-- Restore manifest file implementation version -->
+        <manifest file="${buildDir}\MANIFEST.MF" mode="update">
+            <attribute name="Implementation-Version" value="${build.version}" /> 
+        </manifest>       
+    </target>
+
+    <!-- Tars the files deployed to System Test machine -->
+    <target name="tarPackage2" depends="setupProperties" description="Tars the nightly build. Deployed to System Test">
+        <!-- The nightly build machine requires the date to be appended to the version -->
+        <!-- therefore, date is appended before tar process. Afterwards, manifest.mf   -->
+        <!-- is restored to original value.                                            -->
+        <manifest file="${buildDir}\MANIFEST.MF" mode="update">
+            <attribute name="Implementation-Version" value="${build.version} ${build.dow.time}" /> 
+        </manifest>
+                        
+        <tar destfile="${dsview.stest.package}" longfile="gnu" compression="bzip2">
+            <tarfileset dir="${buildDir}" prefix="build">
+                <include name="MANIFEST.MF" />
+            </tarfileset>
+            <tarfileset dir="${eqxOutDir}" prefix="eqxOutput">
+                <include name="win32-unobfuscated.zip" />
+            </tarfileset>
+            <tarfileset dir="${docOutDir}" prefix="doc" />
+           
+            <!-- Currently, no targets exist which generate these log files.   -->
+            <!-- CruiseControl calls this target after creating the log files. -->
+            <tarfileset dir="${basedir}" >
+                <include name="ant_build.log" />
+                <include name="vss_history.log" />
+            </tarfileset>
+        </tar>
+        
+        <!-- Restore manifest file implementation version -->
+        <manifest file="${buildDir}\MANIFEST.MF" mode="update">
+            <attribute name="Implementation-Version" value="${build.version}" /> 
+        </manifest>       
+    </target>    
+    
+    <!-- Deploys package to (by default) DSView demo machine -->
+    <target name="ftpDeploy" depends="setupProperties, tarPackage">
+        <ftp server="${dsview.demo.address}"  action="${dsview.demo.action}"  binary="yes"
+             userid="${dsview.demo.username}" password="${dsview.demo.password}">
+                <fileset file="${dsview.demo.package}"/>
+        </ftp>
+    </target>
+      
+    <!-- Deploys package to (by default) DSView System Test machine -->
+    <target name="ftpDeploy2" depends="setupProperties, tarPackage2">        
+        <ftp server="${dsview.stest.address}"  action="${dsview.stest.action}"  binary="yes"
+             userid="${dsview.stest.username}" password="${dsview.stest.password}">
+                <fileset file="${dsview.stest.package}"/>
+        </ftp>               
+    </target>
+    
+    <target name="ftpDSViewDeploy">
+    <!--project.file.source    -->
+    </target>
+    
+    <target name="zipPackage" depends="setupProperties" description="Creates zip files for packaging">
+        <delete includeEmptyDirs="true" failOnError="false" dir="${eqxOutDir}"/>
+        <mkdir dir="${eqxOutDir}" />
+    
+        <zip zipfile="${eqxOutDir}/unsupported.zip" basedir="${jettyOutDir}" compress="yes"/>
+        <antcall target="trimUnsupported"/>
+        <antcall target="windowsDialupPackage"/>
+        <zip zipfile="${eqxOutDir}/win32-unobfuscated.zip" compress="yes">
+            <fileset dir="${jettyOutDir}" >
+                <patternset refid="exclude.win32"/>
+            </fileset>
+        </zip>
+  
+        <copy overwrite="true" file="${jettyOutDir}/bin/dsviewserver.solaris" tofile="${jettyOutDir}/bin/dsviewserver"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/libavctNet.so.solaris" tofile="${jettyOutDir}/bin/libavctNet.so"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/DSViewBackupRestore.sh.solaris" tofile="${jettyOutDir}/bin/DSViewBackupRestore.sh"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/libZipArchiveWrapper.so.solaris" tofile="${jettyOutDir}/bin/libZipArchiveWrapper.so"/>
+     
+        <antcall target="solarisDialupPackage" />
+        <zip zipfile="${eqxOutDir}/solaris-unobfuscated.zip" compress="yes">
+            <fileset dir="${jettyOutDir}" >
+                <patternset refid="exclude.solaris"/>
+            </fileset>
+        </zip>
+    
+        <copy overwrite="true" file="${jettyOutDir}/bin/dsviewserver.linux" tofile="${jettyOutDir}/bin/dsviewserver"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/libavctNet.so.linux" tofile="${jettyOutDir}/bin/libavctNet.so"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/DSViewBackupRestore.sh.linux" tofile="${jettyOutDir}/bin/DSViewBackupRestore.sh"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/libZipArchiveWrapper.so.linux" tofile="${jettyOutDir}/bin/libZipArchiveWrapper.so"/>
+ 
+        <antcall target="linuxDialupPackage" />
+        <zip zipfile="${eqxOutDir}/linux-unobfuscated.zip" compress="yes">
+            <fileset dir="${jettyOutDir}" >
+                <patternset refid="exclude.linux"/>
+            </fileset>
+        </zip>
+    
+        <antcall target="obfuscate"/>
+	<antcall target="windowsDialupPackage"/>
+        <zip zipfile="${eqxOutDir}/win32-official.zip" compress="yes">
+            <fileset dir="${jettyOutDir}" >
+                <patternset refid="exclude.win32"/>
+            </fileset>
+        </zip>
+	
+        <copy overwrite="true" file="${jettyOutDir}/bin/dsviewserver.linux" tofile="${jettyOutDir}/bin/dsviewserver"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/libavctNet.so.linux" tofile="${jettyOutDir}/bin/libavctNet.so"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/DSViewBackupRestore.sh.linux" tofile="${jettyOutDir}/bin/DSViewBackupRestore.sh"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/libZipArchiveWrapper.so.linux" tofile="${jettyOutDir}/bin/libZipArchiveWrapper.so"/>
+  
+        <antcall target="linuxDialupPackage" />
+        <zip zipfile="${eqxOutDir}/linux-official.zip" compress="yes">
+            <fileset dir="${jettyOutDir}" >
+                <patternset refid="exclude.linux"/>
+            </fileset>
+        </zip>
+    
+        <copy overwrite="true" file="${jettyOutDir}/bin/dsviewserver.solaris" tofile="${jettyOutDir}/bin/dsviewserver"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/libavctNet.so.solaris" tofile="${jettyOutDir}/bin/libavctNet.so"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/DSViewBackupRestore.sh.solaris" tofile="${jettyOutDir}/bin/DSViewBackupRestore.sh"/>
+        <copy overwrite="true" file="${jettyOutDir}/bin/libZipArchiveWrapper.so.solaris" tofile="${jettyOutDir}/bin/libZipArchiveWrapper.so"/>
+  
+        <antcall target="solarisDialupPackage" />
+        <zip zipfile="${eqxOutDir}/solaris-official.zip" compress="yes">
+            <fileset dir="${jettyOutDir}" >
+                <patternset refid="exclude.solaris"/>
+            </fileset>
+        </zip>
+        
+        <zip zipfile="${eqxOutDir}/obfuscation-logs.zip" basedir="${zkmDir}/logs" compress="yes"/>
+        
+    </target>
+
+    <target name="trimUnsupported" description="Removes unsupported code from the output directory" >
+        <delete includeEmptyDirs="true" failOnError="false">
+            <!-- Embedded devices. Not in final release. -->
+            <fileset dir="${jettyOutDir}/webapp/WEB-INF/etc/units/nmms">
+                <include name="cps*20.xml"/>
+                <include name="dvcemb.xml"/>
+            </fileset>
+            <fileset dir="${jettyOutDir}/webapp/test">
+                <include name="*"/>
+            </fileset>
+            <fileset dir="${jettyOutDir}/bin">
+                <include name="run.bat"/>
+            </fileset>
+        </delete>
+    </target>
+
+    <target name="obfuscate" description="Obfuscates all DSView 3.x JARs" >
+        <delete includeEmptyDirs="true" failOnError="false" dir="${zkmDir}"/>
+        <mkdir dir="${zkmDir}/backup" />
+        <mkdir dir="${zkmDir}/logs" />
+        <mkdir dir="${zkmDir}/libs" />
+        <copy file="${jettyOutDir}/ext/avctUtil.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/ext/avctNet.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/ext/avctGUI.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/ext/avctVideo.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/ext/avctViewerApi.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/ext/httpshandler.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/webapp/WEB-INF/lib/avctPKI.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/webapp/WEB-INF/lib/avctProtocols.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/webapp/WEB-INF/lib/dsview.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/webapp/applets/avctsshtelnet.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/webapp/applets/avctsshtelnetMacOS.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/webapp/applets/avctvideoviewer.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/webapp/applets/avctvideoviewerMacOS.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/webapp/applets/videosessionmanager.jar" todir="${zkmDir}/backup" />
+        <copy file="${jettyOutDir}/webapp/applets/videosessionmanagerMacOS.jar" todir="${zkmDir}/backup" />
+
+        <java jar="${DevTools}/KlassMaster-JDK1.5/ZKM.jar" fork="yes" jvm="${JAVA_JVM}" maxmemory="512M" failonerror="true" dir="${jettyOutDir}">
+            <arg line="-l ${zkmDir}/logs/dsview_webapp_log.txt ../etc/dsview_webapp.zkm" />
+        </java>
+        <move file="${jettyOutDir}/ZKM_TrimLog.txt" tofile="${zkmDir}/logs/dsview_webapp_trim.txt" />
+        <copy file="${zkmDir}/libs/avctUtil.jar" todir="${jettyOutDir}/ext" />
+        <copy file="${zkmDir}/libs/avctNet.jar" todir="${jettyOutDir}/ext" />
+        <copy file="${zkmDir}/libs/avctGUI.jar" todir="${jettyOutDir}/ext" />
+        <copy file="${zkmDir}/libs/avctVideo.jar" todir="${jettyOutDir}/ext" />
+        <copy file="${zkmDir}/libs/avctViewerApi.jar" todir="${jettyOutDir}/ext" />
+        <copy file="${zkmDir}/libs/httpshandler.jar" todir="${jettyOutDir}/ext" />
+        <copy file="${zkmDir}/libs/avctPKI.jar" todir="${jettyOutDir}/webapp/WEB-INF/lib" />
+        <copy file="${zkmDir}/libs/avctProtocols.jar" todir="${jettyOutDir}/webapp/WEB-INF/lib" />
+        <copy file="${zkmDir}/libs/dsview.jar" todir="${jettyOutDir}/webapp/WEB-INF/lib" />
+
+        <java jar="${DevTools}/KlassMaster-JDK1.5/ZKM.jar" fork="yes" jvm="${JAVA_JVM}" maxmemory="128M" failonerror="true" dir="${jettyOutDir}">
+            <arg line="-l ${zkmDir}/logs/dsview_serialviewer_log.txt ../etc/dsview_serialviewer.zkm" />
+        </java>
+        <move file="${jettyOutDir}/ZKM_TrimLog.txt" tofile="${zkmDir}/logs/dsview_serialviewer_trim.txt" />
+        <copy file="${zkmDir}/libs/avctsshtelnet.jar" todir="${jettyOutDir}/webapp/applets" />
+        <signjar jar="${jettyOutDir}/webapp/applets/avctsshtelnet.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+
+        <java jar="${DevTools}/KlassMaster-JDK1.5/ZKM.jar" fork="yes" jvm="${JAVA_JVM}" maxmemory="128M" failonerror="true" dir="${jettyOutDir}">
+            <arg line="-l ${zkmDir}/logs/dsview_serialviewerMacOS_log.txt ../etc/dsview_serialviewerMacOS.zkm" />
+        </java>
+        <move file="${jettyOutDir}/ZKM_TrimLog.txt" tofile="${zkmDir}/logs/dsview_serialviewerMacOS_trim.txt" />
+        <copy file="${zkmDir}/libs/avctsshtelnetMacOS.jar" todir="${jettyOutDir}/webapp/applets" />
+        <signjar jar="${jettyOutDir}/webapp/applets/avctsshtelnetMacOS.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+
+<!-- OBFUSCATION 
+        <java jar="${DevTools}/KlassMaster-JDK1.5/ZKM.jar" fork="yes" jvm="${JAVA_JVM}" maxmemory="128M" failonerror="true" dir="${jettyOutDir}">
+            <arg line="-l ${zkmDir}/logs/dsview_videoviewer_log.txt ../etc/dsview_videoviewer.zkm" />
+        </java>
+        <move file="${jettyOutDir}/ZKM_TrimLog.txt" tofile="${zkmDir}/logs/dsview_videoviewer_trim.txt" />
+        <copy file="${zkmDir}/libs/avctvideoviewer.jar" todir="${jettyOutDir}/webapp/applets" />
+-->
+        <signjar jar="${jettyOutDir}/webapp/applets/avctvideoviewer.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+
+        <java jar="${DevTools}/KlassMaster-JDK1.5/ZKM.jar" fork="yes" jvm="${JAVA_JVM}" maxmemory="128M" failonerror="true" dir="${jettyOutDir}">
+            <arg line="-l ${zkmDir}/logs/dsview_videosessionmanager_log.txt ../etc/dsview_videosessionmanager.zkm" />
+        </java>
+        <move file="${jettyOutDir}/ZKM_TrimLog.txt" tofile="${zkmDir}/logs/dsview_videosessionmanager_trim.txt" />
+        <copy file="${zkmDir}/libs/videosessionmanager.jar" todir="${jettyOutDir}/webapp/applets" />
+        <signjar jar="${jettyOutDir}/webapp/applets/videosessionmanager.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+      
+        <java jar="${DevTools}/KlassMaster-JDK1.5/ZKM.jar" fork="yes" jvm="${JAVA_JVM}" maxmemory="128M" failonerror="true" dir="${jettyOutDir}">
+            <arg line="-l ${zkmDir}/logs/dsview_videosessionmanagerMacOS_log.txt ../etc/dsview_videosessionmanagerMacOS.zkm" />
+        </java>
+        <move file="${jettyOutDir}/ZKM_TrimLog.txt" tofile="${zkmDir}/logs/dsview_videosessionmanagerMacOS_trim.txt" />
+        <copy file="${zkmDir}/libs/videosessionmanagerMacOS.jar" todir="${jettyOutDir}/webapp/applets" />
+        <signjar jar="${jettyOutDir}/webapp/applets/videosessionmanagerMacOS.jar" alias="${keystore.alias}" storepass="${keystore.password}" keystore="${compLibDir}/${keystore.name}"/>
+
+        <touch datetime="${build.time}">
+            <fileset dir="${jettyOutDir}"/>
+        </touch>
+        <touch datetime="${build.time.plus.one}">
+            <fileset dir="${jettyOutDir}/webapp/WEB-INF/jspclasses"/>
+        </touch>
+    </target>
+
+    <!-- Generate Lines of Code Metrics -->
+    <target name="loc" depends="init,buildtools">
+        <echo message="Line of Code Metrics"/>
+        <echo message="--------------------"/>
+        <echo message=""/>
+        <echo message="--------------------"/>
+        <echo message="Java Files (using LOCC)"/>
+        <echo message="--------------------"/>
+        <java classname="csdl.locc.sys.LOCTotal" classpath="${buildLibDir}/locc-all.jar" fork="yes" jvm="${JAVA_JVM}" failonerror="true">
+            <arg value="-sizetype"/>
+            <arg value="javaline"/>
+            <arg value="-srcdir"/>
+            <arg value="${srcDir}"/>
+            <arg value=".java"/>
+            <arg value="-srcdir"/>
+            <arg value="${buildSrcDir}"/>
+            <arg value=".java"/>
+            <arg value="-outfile"/>
+            <arg value="tmp.loc"/>
+            <arg value="-outformat"/>
+            <arg value="csv"/>
+            <arg value="-printSummary"/>
+        </java>
+        <delete file="tmp.loc"/>
+        <echo message=""/>
+        <echo message="--------------------"/>
+        <echo message="Java Files (using CPP Count) src"/>
+        <echo message="--------------------"/>
+        <java classname="CPPCount" classpath="${buildOutDir}" fork="yes" jvm="${JAVA_JVM}" dir="${srcDir}" failonerror="true">
+            <arg value="-r"/>
+            <arg value="java"/>
+        </java>
+        <echo message=""/>
+        <echo message="--------------------"/>
+        <echo message="Java Files (using CPP Count) build/src"/>
+        <echo message="--------------------"/>
+        <java classname="CPPCount" classpath="${buildOutDir}" fork="yes" jvm="${JAVA_JVM}" dir="${buildSrcDir}" failonerror="true">
+            <arg value="-r"/>
+            <arg value="java"/>
+        </java>
+        <echo message=""/>
+        <echo message="--------------------"/>
+        <echo message="Property Files"/>
+        <echo message="--------------------"/>
+        <java classname="PropertiesCount" classpath="${buildOutDir}" fork="yes" jvm="${JAVA_JVM}" dir="${warDir}" failonerror="true">
+            <arg value="-r"/>
+            <arg value="properties"/>
+        </java>
+        <echo message=""/>
+        <echo message="--------------------"/>
+        <echo message="C++ Files (AuthenticatorNTDomain)"/>
+        <echo message="--------------------"/>
+        <java classname="CPPCount" classpath="${buildOutDir}" fork="yes" jvm="${JAVA_JVM}" dir="${prefix}/win32/AuthenticatorNTDomain" failonerror="true">
+            <arg value="cpp"/>
+            <arg value="c"/>
+            <arg value="hpp"/>
+            <arg value="h"/>
+        </java>
+        <echo message=""/>
+        <echo message="--------------------"/>
+        <echo message="C++ Files (BackupRestore)"/>
+        <echo message="--------------------"/>
+        <java classname="CPPCount" classpath="${buildOutDir}" fork="yes" jvm="${JAVA_JVM}" dir="${prefix}/win32/BackupRestore" failonerror="true">
+            <arg value="cpp"/>
+            <arg value="c"/>
+            <arg value="hpp"/>
+            <arg value="h"/>
+        </java>
+        <echo message=""/>
+        <echo message="--------------------"/>
+        <echo message="C++ Files (ZipArchiveWrapper)"/>
+        <echo message="--------------------"/>
+        <java classname="CPPCount" classpath="${buildOutDir}" fork="yes" jvm="${JAVA_JVM}" dir="${prefix}/win32/ZipArchiveWrapper" failonerror="true">
+            <arg value="cpp"/>
+            <arg value="c"/>
+            <arg value="hpp"/>
+            <arg value="h"/>
+        </java>
+        <echo message=""/>
+        <echo message="--------------------"/>
+        <echo message="Model Definitions"/>
+        <echo message="--------------------"/>
+        <java classname="XMLCount" classpath="${buildOutDir}" fork="yes" jvm="${JAVA_JVM}" dir="${etcSrcDir}" failonerror="true">
+            <arg value="-r"/>
+            <arg value="xml"/>
+        </java>
+        <echo message=""/>
+        <echo message="--------------------"/>
+        <echo message="Web App XML"/>
+        <echo message="--------------------"/>
+        <java classname="XMLCount" classpath="${buildOutDir}" fork="yes" jvm="${JAVA_JVM}" dir="${warDir}" failonerror="true">
+            <arg value="-r"/>
+            <arg value="xml"/>
+        </java>
+        <echo message=""/>
+        <echo message="--------------------"/>
+        <echo message="Web App JSP"/>
+        <echo message="--------------------"/>
+        <java classname="XMLCount" classpath="${buildOutDir}" fork="yes" jvm="${JAVA_JVM}" dir="${warDir}" failonerror="true">
+            <arg value="-r"/>
+            <arg value="-j"/>
+            <arg value="jsp"/>
+        </java>
+    </target>
+
+    <!-- Build Applets for NetBeans -->
+    <target name="nbapplets" depends="setupProperties">
+        <available property="libs.old" file="${compLibDir}/lastGet"/>
+        <antcall target="applets">    
+            <param name="jspGen.notRequired"  value="true"/>
+        </antcall>
+    </target>
+
+    <!-- Deploy Classes for use by NetBeans -->
+    <target name="nbdeployclasses">
+    
+        <copy todir="${warDir}/WEB-INF/classes">
+            <fileset dir="${outDir}">
+                <include name="**/*.class"/>
+                <include name="**/*.sql"/>
+                <include name="**/*.properties"/>
+                <exclude name="com/avocent/dsview/server/util/jetty/*"/>
+                <exclude name="com/avocent/dsview/server/util/HttpsConfiguration*.class"/>
+            </fileset>
+        </copy>
+
+        <jar update="true" jarfile="${jettyOutDir}/ext/httpshandler.jar">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - HTTPS Handler"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+            <fileset dir="${outDir}">
+                <include name="com/avocent/dsview/server/auth/https/*.class"/>
+            </fileset>
+        </jar>
+
+        <jar compress="true" update="true" jarfile="${jettyOutDir}/ext/jettyservice.jar">
+            <manifest>
+                <attribute name="Build-Date" value="${build.time}"/>
+                <attribute name="Build-User" value="${user.name}"/>
+                <attribute name="Build-File" value="${ant.file}"/>
+                <attribute name="Build-Location" value="${prefix}"/>
+                <attribute name="Build-Platform" value="${os.name} ${os.version}(${os.arch})"/>
+                <attribute name="Specification-Title" value="${java.specification.name}"/>
+                <attribute name="Specification-Version" value="${java.version}"/>
+                <attribute name="Specification-Vendor" value="${java.vendor}"/>
+                <attribute name="CopyrightNotice" value="Copyright (c) 1996-${build.year} ${corp.name}"/>
+                <attribute name="Implementation-Title" value="${ant.project.name} - Jetty Custom JSSE Listener"/>
+                <attribute name="Implementation-Vendor" value="${corp.name}"/>
+                <attribute name="Implementation-Version" value="${build.version}"/>
+            </manifest>
+            <fileset dir="${outDir}">
+                <include name="com/avocent/dsview/server/util/jetty/*.class" />
+                <include name="com/avocent/dsview/server/auth/DSViewServerCredentials*.class" />
+                <include name="com/avocent/dsview/server/util/DSViewServerProperties*.class" />
+                <include name="com/avocent/dsview/server/util/KeyStoreHelper*.class" />
+                <include name="com/avocent/dsview/server/util/HttpsConfiguration*.class" />
+            </fileset>
+            <fileset dir="${srcDir}">
+                <include name="com/avocent/dsview/server/util/jetty/*.cert"/>
+            </fileset>
+        </jar>
+    </target>
+    
+    <!-- 
+      Performs initial build in eclipse. Currently does nbbuild (build from netbeans) 
+      and some of the things that were present in nbrun (netbeans run)
+    -->
+    <target name="eclipsebuild" depends="nbbuild">
+        <copy todir="${jettyOutDir}/etc" file="${jettySrcDir}/etc/jetty.xml" overwrite="yes"/>
+        <replace file="${jettyOutDir}/etc/jetty.xml" token="../webapp" value="../../dsview"/>
+        <mkdir dir="${jettyOutDir}/webapp/WEB-INF/jspclasses"/>
+    </target>  
+         
+    
+    <!-- Build Jetty in NetBeans, does NOT get Complib unless lastGet does NOT exist -->
+    <target name="nbbuild" depends="setupProperties,deployTranslations">
+        <available property="libs.new" file="${compLibDir}/lastGet"/>
+        <antcall target="classes">
+            <param name="jspGen.notRequired"  value="true"/>
+            <param name="win32.notRequired"   value="true"/>
+            <param name="applets.notRequired" value="true"/>
+        </antcall>
+
+        <copy todir="${warDir}/WEB-INF/lib" preservelastmodified="yes">
+            <fileset dir="${compLibDir}">
+                <include name="pb*.jar"/>
+                <exclude name="pbupgrade.jar"/><!-- Not included since this has conflicting files -->
+                <include name="standard.jar"/>
+                <include name="avctProtocols.jar"/>
+                <include name="saxpath.jar"/>
+                <include name="jstl.jar"/>
+                <include name="struts.jar"/>
+                <include name="struts-el.jar"/>
+                <include name="jcifs-*.jar"/>
+                <include name="joesnmp-1.1.jar"/>
+                <include name="jradius-client.jar"/>
+                <include name="radclient3.jar"/>
+                <include name="tacclient.jar"/>
+                <include name="commons-*.jar"/>
+                <include name="jakarta-oro.jar"/>
+                <include name="axis.jar"/>
+                <include name="hsqldb.jar"/>
+                <include name="log4j.jar"/>
+                <include name="saaj.jar"/>
+                <include name="jaxrpc.jar"/>
+                <include name="jax-qname.jar"/>
+                <include name="wsdl4j.jar"/>
+                <include name="jzlib.jar"/>
+                <include name="authapi.jar"/>
+                <include name="avctPKI.jar"/>
+                <include name="maverick-sshd.jar"/>
+                <include name="bcprov-jdk14-133.jar"/>
+                <include name="tar.jar"/>
+                <include name="ehcache.jar"/>
+
+<!--                 tom 6/17/2011-->
+                <include name="antlr-2.7.6.jar"/>
+                <include name="aopalliance.jar"/>
+                <include name="cglib-2.2.jar"/>
+                <include name="commons-collections-3.1.jar"/>
+                <include name="dom4j-1.6.1.jar"/>
+                <include name="guice-3.0.jar"/>
+                <include name="guice-persist-3.0.jar"/>
+                <include name="guice-servlet-3.0.jar"/>
+                <include name="hibernate3.jar"/>
+                <include name="hibernate-jpa-2.0-api-1.0.0.Final.jar"/>
+                <include name="javassist-3.12.0.GA.jar"/>
+                <include name="javax.inject.jar"/>
+                <include name="jta-1.1.jar"/>
+                <include name="junit-4.9b2.jar"/>
+                <include name="postgresql-9.0-801.jdbc4.jar"/>
+                <include name="slf4j-api-1.6.1.jar"/>
+            </fileset>
+            <!-- Add javax.servlet.jar to Web-Inf/lib directory for plug-in to use-->
+            <fileset dir="${jettySrcDir}/lib">
+                <include name="javax.servlet.jar" />
+            </fileset>
+        </copy>
+
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDir}/mindterm.jar" dest="tmp"/>
+        <delete dir="tmp/META-INF"/>
+        <delete includeEmptyDirs="true" failOnError="true">
+            <fileset dir="tmp/com/jcraft/jzlib" />
+        </delete>
+        <delete file="${warDir}/WEB-INF/lib/mindterm.jar" failOnError="false"/>
+        <jar jarfile="${warDir}/WEB-INF/lib/mindterm.jar" basedir="tmp" compress="true">
+            <fileset dir="tmp"/>
+        </jar>
+        <delete includeEmptyDirs="true" failOnError="false">
+            <fileset dir="tmp" />
+        </delete>
+
+        <antcall target="nbdeployclasses"/>
+
+        <copy todir="${warDir}/WEB-INF/etc" preservelastmodified="yes">
+            <fileset dir="${etcSrcDir}">
+                <include name="*.properties"/>
+            </fileset>
+        </copy>
+   
+        <copy todir="${jettyOutDir}" preservelastmodified="yes">
+            <fileset dir="${jettySrcDir}" />
+        </copy>
+        <copy file="${compLibDir}/pbembedded.lic" tofile="${jettyOutDir}/etc/dsvdbase.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbunisync.lic" tofile="${jettyOutDir}/etc/dsvsync.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbupgrade.jar" tofile="${jettyOutDir}/etc/pbupgrade.jar" preservelastmodified="yes"/>
+
+        <copy todir="${jettyOutDir}/ext" preservelastmodified="yes">
+            <fileset dir="${compLibDir}">
+                <include name="avctUtil.jar"/>
+                <include name="avctNet.jar"/>
+                <include name="avctGUI.jar"/>
+                <include name="avctViewerApi.jar"/>
+                <include name="avctVideo.jar"/>
+            </fileset>
+        </copy>
+
+        <copy todir="${jettyOutDir}/bin" preservelastmodified="yes">
+            <fileset dir="${compLibDir}">
+                <include name="avctWin32Lib.dll"/>
+                <include name="DSView3xasap.dll"/>
+            </fileset>
+        </copy>
+
+        <antcall target="properties">
+            <param name="jspGen.notRequired"  value="true"/>
+            <param name="win32.notRequired"   value="true"/>
+            <param name="applets.notRequired" value="true"/>
+        </antcall>
+
+        <antcall target="viewergraphics"/>
+    </target>
+    
+    <target name="viewergraphics">
+        <mkdir dir="tmp" />
+        <unjar src="${compLibDir}/avctVideo.jar" dest="tmp"/>
+        <copy todir="${imageDir}" flatten="yes">
+          <fileset dir="tmp" includes="**/cursor*64.gif"/>
+        </copy>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+    </target>
+
+    <!-- Run Jetty in NetBeans -->
+    <target name="nbrun" depends="nbbuild">
+    
+        <copy todir="${jettyOutDir}/etc" file="${jettySrcDir}/etc/jetty.xml" overwrite="yes"/>
+        <replace file="${jettyOutDir}/etc/jetty.xml" token="../webapp" value="../../dsview"/>
+        <mkdir dir="${jettyOutDir}/webapp/WEB-INF/jspclasses"/>
+
+        <!-- Removes the HTTP Monitor Filter JAR files if they exist -->
+        <delete file="dsview/WEB-INF/lib/org-netbeans-modules-web-httpmonitor.jar" failonerror="false"/>
+        <delete file="dsview/WEB-INF/lib/org-netbeans-modules-schema2beans.jar" failonerror="false"/>
+
+        <!-- Revert the web.xml to the bak file incase that failed to occur at the end of the last debug session -->
+        <available property="shouldRestoreWebXml" file="dsview/WEB-INF/web.~xml"/>
+        <antcall target="restoreWebXml"/>
+
+        <java jar="${jettyOutDir}\\bin\\start.jar" fork="yes" jvm="${JAVA_JVM}" dir="${jettyOutDir}\\bin" failonerror="true">
+            <jvmarg value="-DSTOP.PORT=-1"/>
+            <jvmarg value="-Xverify:none"/>
+            <jvmarg value="-server"/>
+            <jvmarg value="-mx256M"/>
+            <jvmarg value="-XX:MaxPermSize=256m"/>
+            <jvmarg value="-Xbootclasspath/a:${jettyOutDir}\\ext\\mail.jar"/>
+        </java>
+
+    </target>
+    
+    <!-- Run Profiler in NetBeans -->
+    <target name="profile" depends="nbbuild" description="Profile DSView Project">
+        <fail unless="netbeans.home">This target can only run inside the NetBeans IDE.</fail>
+        <copy todir="${jettyOutDir}/etc" file="${jettySrcDir}/etc/jetty.xml" overwrite="yes"/>
+        <replace file="${jettyOutDir}/etc/jetty.xml" token="../webapp" value="../../dsview"/>
+        <mkdir dir="${jettyOutDir}/webapp/WEB-INF/jspclasses"/>
+        
+        <nbprofiledirect> 
+            <classpath> 
+                <pathelement path="${outDir}"/> 
+            </classpath> 
+        </nbprofiledirect> 
+
+        <!-- Removes the HTTP Monitor Filter JAR files if they exist 
+        <delete file="dsview/WEB-INF/lib/org-netbeans-modules-web-httpmonitor.jar" failonerror="false"/>
+        <delete file="dsview/WEB-INF/lib/org-netbeans-modules-schema2beans.jar" failonerror="false"/>-->
+
+        <!-- Revert the web.xml to the bak file incase that failed to occur at the end of the last debug session -->
+        <available property="shouldRestoreWebXml" file="dsview/WEB-INF/web.~xml"/>
+        <antcall target="restoreWebXml"/>
+
+        <java jar="${jettyOutDir}\\bin\\start.jar" fork="yes" jvm="${JAVA_JVM}" dir="${jettyOutDir}\\bin" failonerror="true">
+            <jvmarg value="${profiler.info.jvmargs.agent}"/>
+            <jvmarg value="-DSTOP.PORT=-1"/>
+            <jvmarg value="-Xverify:none"/>
+            <jvmarg value="-server"/>
+            <jvmarg value="-mx256M"/>
+            <jvmarg value="-XX:MaxPermSize=256m"/>
+            <jvmarg value="-Xbootclasspath/a:${jettyOutDir}\\ext\\mail.jar"/>
+        </java>
+
+    </target>
+
+    <!-- Restores the WEB.XML file withthe BAK file created prior to debugging-->
+    <target name="restoreWebXml" if="shouldRestoreWebXml">
+        <delete file="dsview/WEB-INF/web.xml" failonerror="false"/>
+        <move file="dsview/WEB-INF/web.~xml" tofile="dsview/WEB-INF/web.xml" overwrite="true"/>    
+    </target>
+
+    <!-- This target compiles selected files into the class dir of netbeans -->
+    <target name="nb-compile-selected">
+        <fail unless="selected-files">Must set property 'selected-files'</fail>
+        <javac source="${JAVAC_SOURCE}" 
+            target="${JAVAC_TARGET}" 
+	    executable="${JAVAC_EXE}" fork="yes"
+            destdir="${outDir}" 
+            classpath="${outDir}" 
+            classpathref="libs" 
+            optimize="off"  
+            verbose="off" 
+            debug="true" 
+            includes="${selected-files}">
+            <src path="${srcDir}" />
+        </javac>
+    </target>
+
+    <target name="packageResources" depends="init">
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        <mkdir dir="tmp" />
+
+        <!-- package core server resources -->
+        <copy todir="tmp">
+            <fileset dir="dsview/WEB-INF/res" />
+            <!-- The flex/locale translated files must be unzip back in order for the
+            to be incorporated into the flex movies -->
+                       
+            <fileset dir="flex/locale">
+                <exclude name="**/*_zh.properties"/>
+                <exclude name="**/*_ko.properties"/>
+                <exclude name="**/*_ja.properties"/>
+            </fileset>
+        </copy>
+        <!-- include previously translated files -->
+        <!--unzip src="lib/res_translations.zip" dest="tmp" /-->
+                
+        <delete includeEmptyDirs="true" failOnError="true">
+            <fileset dir="tmp">
+                <include name="vssver.scc"/>
+                <!--include name="resource-references*.properties"/-->
+            </fileset>
+        </delete>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp/webservices" />
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp/keyboards" />
+        <fixcrlf srcdir="tmp" eol="dos" includes="**/*.properties"/>
+        <zip basedir="tmp" destfile="lib/res_webapp.zip"/>
+        <delete includeEmptyDirs="true" failOnError="false" dir="tmp" />
+        
+        <!-- Package win32 BackupRestore resources -->
+        <zip destfile="lib/res_win32backuprestore.zip">
+          <fileset dir="${prefix}">
+            <include name="win32/BackupRestore/**/*.rc"/>
+          </fileset>
+        </zip>
+    </target>
+
+    <!-- this copies all script files and data files for linux install -->
+    <target name="linuxDialupPackage" depends="init">
+        <!-- delete any previous files -->
+        <delete includeemptydirs="true">
+            <fileset dir="${jettyOutDir}/scripts" includes="**/*"/>
+            <fileset dir="${jettyOutDir}/data" includes="**/*"/>            
+        </delete>
+
+        <copy todir="${jettyOutDir}/scripts">
+           <fileset dir="${rootDir}/scripts/linux/scripts"/> 
+        </copy> 
+        <fixcrlf srcdir="${jettyOutDir}/scripts"
+            eol="unix" 
+        />
+        <copy todir="${jettyOutDir}/data">
+           <fileset dir="${rootDir}/scripts/linux/data"/> 
+        </copy> 
+        <copy todir="${jettyOutDir}/data" file="${rootDir}/scripts/linux/ssrm" overwrite="yes"/>
+        <copy todir="${jettyOutDir}/data" file="${rootDir}/scripts/linux/ssmkn" overwrite="yes"/>
+        <copy todir="${jettyOutDir}/data" file="${rootDir}/scripts/linux/mklock" overwrite="yes"/>
+        <copy todir="${jettyOutDir}/data" file="${rootDir}/scripts/linux/cyyutil" overwrite="yes"/>
+    </target>
+     
+    <!-- this copies all script files and data files for solaris install  -->
+    <target name="solarisDialupPackage" depends="init">
+        <!-- delete any previous files -->
+        <delete includeemptydirs="true">
+            <fileset dir="${jettyOutDir}/scripts" includes="**/*"/>
+            <fileset dir="${jettyOutDir}/data" includes="**/*"/>            
+        </delete>
+        
+        <copy todir="${jettyOutDir}/scripts">
+           <fileset dir="${rootDir}/scripts/solaris/scripts"/> 
+        </copy> 
+        <fixcrlf srcdir="${jettyOutDir}/scripts"
+            eol="unix" 
+        />
+        <copy todir="${jettyOutDir}/data">
+           <fileset dir="${rootDir}/scripts/solaris/data"/> 
+        </copy> 
+    </target>
+    
+    <!-- this copies all data files for windows install -->
+    <target name="windowsDialupPackage" depends="init">    
+        <delete includeemptydirs="true">
+            <fileset dir="${jettyOutDir}/data" includes="**/*"/>            
+        </delete>         
+        <copy todir="${jettyOutDir}/data" file="${rootDir}/scripts/solaris/data/dialup.properties" overwrite="yes"/>
+    </target>
+
+    <taskdef resource="net/sf/antcontrib/antcontrib.properties" classpath="build/lib/ant-contrib.jar"/>
+    <taskdef resource="flexTasks.tasks" classpath="build/lib/flexTasks.jar"/>
+    <property name="FLEX_HOME" value="C:/Program Files/Adobe/Flex Builder 2/Flex SDK 2"/>
+
+     <target name="flexMy" depends="setupProperties">
+      <for param="fileName">
+        <path>
+          <fileset dir="flex/src">
+            <!-- <include name="*.as"/> -->
+            <include name="ReportControl.mxml"/>
+          </fileset>
+        </path>
+        <sequential>
+            <mxmlc file="@{filename}" keep-generated-actionscript="true">
+               <source-path path-element="flex/locale"/>
+               <compiler.include-libraries dir="flex/lib">
+                  <include name="graphLayout.swc" />
+                  <include name="unComponentToolbox.swc" />
+                  <include name="PrimitiveIcons.swc" />  
+               </compiler.include-libraries>              
+            </mxmlc>
+        </sequential>
+      </for>
+      <copy todir="${warDir}/protected/flex" preservelastmodified="yes">
+        <fileset dir="flex/src">
+          <include name="*.swf"/>
+        </fileset>
+      </copy>
+    </target> 
+    
+   <target name="flexPackage" depends="setupProperties,flexCss">
+      <property name="FLEX_HOME" value="\\sun-scm\flex" />
+      
+      <for param="fileName">
+        <path>
+          <fileset dir="flex/src">
+            <include name="*.as"/>
+            <include name="*.mxml"/>
+          </fileset>
+        </path>
+        <sequential>
+            <mxmlc file="@{filename}" keep-generated-actionscript="true">
+               <source-path path-element="flex/locale"/>
+               <compiler.include-libraries dir="flex/lib">
+                  <include name="graphLayout.swc" />
+                  <include name="unComponentToolbox.swc" />
+                  <include name="PrimitiveIcons.swc" />  
+               </compiler.include-libraries>              
+            </mxmlc>
+        </sequential>
+      </for>
+      <copy todir="${warDir}/protected/flex" preservelastmodified="yes">
+        <fileset dir="flex/src">
+          <include name="*.swf"/>
+        </fileset>
+      </copy>
+    </target>
+    
+    <target name="flexCss" depends="setupProperties">
+       <mkdir dir="${cssDir}/tmp" />
+       <copy file="${cssDir}/scheme-1.css" tofile="${cssDir}/tmp/SchemeCss1.css" />      
+       <copy file="${cssDir}/scheme-2.css" tofile="${cssDir}/tmp/SchemeCss2.css" />   
+       <copy file="${cssDir}/scheme-3.css" tofile="${cssDir}/tmp/SchemeCss3.css" />   
+       <copy file="${cssDir}/scheme-4.css" tofile="${cssDir}/tmp/SchemeCss4.css" />   
+       <copy file="${cssDir}/scheme-5.css" tofile="${cssDir}/tmp/SchemeCss5.css" />   
+       <copy file="${cssDir}/scheme-6.css" tofile="${cssDir}/tmp/SchemeCss6.css" />   
+       <copy file="${cssDir}/scheme-7.css" tofile="${cssDir}/tmp/SchemeCss7.css" />   
+       <copy file="${cssDir}/scheme-8.css" tofile="${cssDir}/tmp/SchemeCss8.css" />   
+       <copy file="${cssDir}/scheme-9.css" tofile="${cssDir}/tmp/SchemeCss9.css" />   
+       
+       <for param="fileName">
+        <path>
+          <fileset dir="${cssDir}/tmp">
+            <include name="*.css"/>
+          </fileset>
+        </path>
+        <sequential>
+            <mxmlc file="@{filename}" keep-generated-actionscript="true" />
+        </sequential>
+      </for>
+      <mkdir dir="${warDir}/protected/flex/css" />
+      <copy todir="${warDir}/protected/flex/css" preservelastmodified="yes">
+        <fileset dir="${cssDir}/tmp">
+          <include name="*.swf"/>
+        </fileset>
+      </copy>      
+      <delete includeEmptyDirs="true" failOnError="false" dir="${cssDir}/tmp" />
+    </target>    
+    
+    <!-- Run Jetty in NetBeans -->
+    <target name="debugAccessExport" depends="setupProperties">
+        
+       <echo message="==> Executing the ANT target:  accessExport" level="info"/>
+       
+       <available property="libs.new" file="${compLibDir}/lastGet"/>
+       <antcall target="classes">
+            <param name="jspGen.notRequired"  value="true"/>
+            <param name="win32.notRequired"   value="true"/>
+            <param name="applets.notRequired" value="true"/>
+       </antcall>
+
+        <copy todir="${warDir}/WEB-INF/lib" preservelastmodified="yes">
+            <fileset dir="${compLibDir}">
+                <include name="pb*.jar"/>
+                <exclude name="pbupgrade.jar"/><!-- Not included since this has conflicting files -->
+                <include name="standard.jar"/>
+                <include name="avctUtil.jar"/>
+                <include name="avctProtocols.jar"/>
+                <include name="saxpath.jar"/>
+                <include name="jstl.jar"/>
+                <include name="struts.jar"/>
+                <include name="struts-el.jar"/>
+                <include name="jcifs-*.jar"/>
+                <include name="joesnmp-1.1.jar"/>
+                <include name="jradius-client.jar"/>
+                <include name="radclient3.jar"/>
+                <include name="tacclient.jar"/>
+                <include name="commons-*.jar"/>
+                <include name="jakarta-oro.jar"/>
+                <include name="axis.jar"/>
+                <include name="hsqldb.jar"/>
+                <include name="log4j.jar"/>
+                <include name="saaj.jar"/>
+                <include name="jaxrpc.jar"/>
+                <include name="jax-qname.jar"/>
+                <include name="wsdl4j.jar"/>
+                <include name="jzlib.jar"/>
+                <include name="authapi.jar"/>
+                <include name="avctPKI.jar"/>
+                <include name="maverick-sshd.jar"/>
+                <include name="bcprov-jdk14-133.jar"/>
+                <include name="tar.jar"/>
+                <include name="ehcache.jar"/>
+            </fileset>
+            <!-- Add javax.servlet.jar to Web-Inf/lib directory for plug-in to use-->
+            <fileset dir="${jettySrcDir}/lib">
+                <include name="javax.servlet.jar" />
+            </fileset>
+        </copy>
+        
+        <antcall target="nbdeployclasses"/>
+
+        <copy todir="${warDir}/WEB-INF/etc" preservelastmodified="yes">
+            <fileset dir="${etcSrcDir}">
+                <include name="*.properties"/>
+            </fileset>
+        </copy>
+   
+        <copy todir="${jettyOutDir}" preservelastmodified="yes">
+            <fileset dir="${jettySrcDir}" />
+        </copy>
+        <copy file="${compLibDir}/pbembedded.lic" tofile="${jettyOutDir}/etc/dsvdbase.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbunisync.lic" tofile="${jettyOutDir}/etc/dsvsync.lic" preservelastmodified="yes"/>
+        <copy file="${compLibDir}/pbupgrade.jar" tofile="${jettyOutDir}/etc/pbupgrade.jar" preservelastmodified="yes"/>
+
+   
+       <path id="accessCP">
+            <fileset dir="${warDir}/WEB-INF/lib">
+                <include name="**/*.jar"/>
+            </fileset>
+            <pathelement path="${warDir}/WEB-INF/classes"/>
+       </path>
+            
+       <echo message="==> accessExport path: ${warDir}/WEB-INF/classes" level="info"/>  
+
+       <nbjpdastart addressproperty="jpda.address" name="AccessExport" transport="dt_socket">
+          <classpath refid="accessCP"/>
+       </nbjpdastart>
+       
+       <echo message="==> accessExport jpda.address: ${jpda.address}" level="info"/>
+        
+       <java fork="true"
+             classname="com.avocent.dsview.server.util.mergepointAccessExport.MergepointAccessExport"
+             dir="${jettyOutDir}\\bin"
+             jvm="${JAVA_JVM}">
+          <classpath>
+             <path refid="accessCP"/>
+          </classpath>
+          <jvmarg value="-Xdebug"/>
+          <jvmarg value="-Xnoagent"/>
+          <jvmarg value="-Xrunjdwp:transport=dt_socket,address=${jpda.address}"/>
+          <jvmarg value="-enableassertions"/>
+
+          <arg value="${basedir}\output" />
+          <arg value="-export"/>
+          <arg value="-archive test"/> 
+          <arg value="test.export.zip"/> 
+ 
+       </java>
+
+    </target>
+    
+</project>
