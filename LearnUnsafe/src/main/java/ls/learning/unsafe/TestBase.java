@@ -20,24 +20,36 @@ public class TestBase {
 	}
 	
 	private void testOffHeapMemory() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, UnsupportedEncodingException {
-		final byte[] input = "你好啊 Block current thread, returning when a balancing unpark occurs, 你好不安全的 or a balancing unpark has already occurred, or the thread is interrupted, or, if not absolute and time is not zero, the given time nanoseconds have elapsed, or if absolute, the given deadline in milliseconds since Epoch has passed, or spuriously (i.e., returning for no 'reason'). Note: This operation is in the Unsafe class only because unpark is, so it would be strange to place it elsewhere.".getBytes("UTF-8");
+		final byte[] input = "123456789".getBytes("UTF-8");
 		final long[] addressArr = new long[input.length];
+		final Unsafe unsafe = getUnsafe();
 		try {
 			for (byte b : input) {
 				System.out.print(b);
 			}
 			System.out.println();
 			
-			long address = 0;
 			for (int i = 0; i < input.length; i++) {
-				addressArr[i] = getUnsafe().allocateMemory(1);
-				getUnsafe().putByte(addressArr[i], input[i]);
+				addressArr[i] = getUnsafe().allocateMemory(10);
+				System.out.println("----------" + i);
+				long addr = addressArr[i];
+				for (int j = 0; j < 10; j++) {
+					System.out.println(addr);
+					unsafe.setMemory(addr, 10L, (byte) 0); 
+					unsafe.putByte(addr, input[i]);
+					addr += normalize(8);
+				}
 			}
 			
 			byte[] output = new byte[input.length];
-			long addr = 0;
-			for (int i = 0; i < input.length; i++) {  
-				output[i] = getUnsafe().getByte(addressArr[i]);
+			for (int i = 0; i < input.length; i++) {
+				long addr = addressArr[i];
+				System.out.println("++++++++" + i);
+				for (int j = 0; j < 10; j++) {
+					System.out.println(addr);
+					output[i] = unsafe.getByte(addr);
+					addr += normalize(8);
+				}
 			}
 			
 			for (byte b : output) {
@@ -54,6 +66,30 @@ public class TestBase {
 			System.out.println("Failed num: " + failCount);
 			
 			System.out.println(new String(output, "UTF-8"));
+		}
+		finally {
+			/*for (long addr : addressArr) {
+				getUnsafe().freeMemory(addr);
+			}*/
+		}
+		
+	}
+	
+	private void testOffHeapMemory2() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, UnsupportedEncodingException {
+		final String input = "123456789";
+		final Unsafe unsafe = getUnsafe();
+		try {
+			System.out.println(input);
+			
+			long size = sizeOf(input);
+		    long start = toAddress(input);
+		    long address = getUnsafe().allocateMemory(size);
+		    getUnsafe().copyMemory(start, address, size);
+		    
+		    String output = (String) fromAddress(address);
+		    
+			
+			System.out.println(output);
 		}
 		finally {
 			/*for (long addr : addressArr) {
@@ -90,11 +126,36 @@ public class TestBase {
 		return unsafe;
 	}
 
+	private static long normalize(int value) {
+	    if(value >= 0) return value;
+	    return (~0L >>> 32) & value;
+	}
+	
+	public static long sizeOf(Object object) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException{
+	    return getUnsafe().getAddress(
+	        normalize(getUnsafe().getInt(object, 4L)) + 12L);
+	}
+	
+	static long toAddress(Object obj) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
+	    Object[] array = new Object[] {obj};
+	    long baseOffset = getUnsafe().arrayBaseOffset(Object[].class);
+	    return normalize(getUnsafe().getInt(array, baseOffset));
+	}
+
+	static Object fromAddress(long address) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
+	    Object[] array = new Object[] {null};
+	    long baseOffset = getUnsafe().arrayBaseOffset(Object[].class);
+	    getUnsafe().putLong(array, baseOffset, address);
+	    return array[0];
+	}
+
+
 	public static void main(String[] args) throws InstantiationException, IllegalAccessException, NoSuchFieldException, SecurityException, IllegalArgumentException, UnsupportedEncodingException {
 		TestBase base = new TestBase();
 //		base.testAvoidingObjectInit();
-		base.testOffHeapMemory();
-		
+
+//		base.testOffHeapMemory();
+		base.testOffHeapMemory2();
 		
 	}
 	
