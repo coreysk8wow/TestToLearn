@@ -11,7 +11,7 @@ public class TestBase {
 	private void testAvoidingObjectInit() throws InstantiationException, NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
 		A a1 = new A();
 		System.out.println(a1.a());
-		
+			
 		A a2 = A.class.newInstance();
 		System.out.println(a2.a());
 		
@@ -99,20 +99,160 @@ public class TestBase {
 		
 	}
 	
-	private void exhaustRam() {
-		ExecutorService exec = Executors.newFixedThreadPool(10);
+	private void testOffHeapMemory3() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, UnsupportedEncodingException {
+//		final byte[] input = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+		final String inputStr = "你好，不安全的！private void testOffHeapMemory3() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, UnsupportedEncodingException {";
+		final byte[] input = inputStr.getBytes();
+
+		System.out.println(inputStr);
+		for (byte b : input) {
+			System.out.print(b + ", ");
+		}
+		System.out.println();
+		
+		final Unsafe unsafe = getUnsafe();
+		try {
+			final long blockAddr = unsafe.allocateMemory(input.length);
+			unsafe.setMemory(blockAddr, input.length, (byte) 0);
+			long addr = blockAddr;
+			for (int i = 0; i < input.length; i++) {
+				unsafe.putByte(addr, input[i]);
+				addr += normalize(1);
+			}
+			
+			final byte[] output = new byte[input.length];
+			addr = blockAddr;
+			for (int i = 0; i < output.length; i++) {
+				output[i] = unsafe.getByte(addr);
+				addr += normalize(1);
+			}
+			
+			for (byte b : output) {
+				System.out.print(b + ", ");
+			}
+			System.out.println();
+			System.out.println(new String(output));
+			
+			int failCount = 0;
+			for (int i = 0; i < output.length; i++) {
+				if (output[i] != input[i]) {
+					failCount++;
+				}
+			}
+			System.out.println("Failed num: " + failCount);
+		}
+		finally {
+		}
+	}
+	
+	/*
+	 * Allocate Memory one by one
+	 */
+	private void testOffHeapMemory4() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, UnsupportedEncodingException {
+//		final byte[] input = {(byte) 0, (byte) 1, (byte) 2, (byte) 3, (byte) 4, (byte) 5, (byte) 6, (byte) 7, (byte) 8, (byte) 9};
+		final byte[] input = "private void testOffHeapMemory4() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, UnsupportedEncodingException {"
+				.getBytes();
+		final long[] addressArr = new long[input.length];
+		final Unsafe unsafe = getUnsafe();
+		try {
+			System.out.println(new String(input));
+			for (byte b : input) {
+				System.out.print(b + ", ");
+			}
+			System.out.println();
+			
+			for (int i = 0; i < input.length; i++) {
+				addressArr[i] = getUnsafe().allocateMemory(1);
+				System.out.println("-----write-----" + i);
+				long addr = addressArr[i];
+				System.out.println(addr);
+				unsafe.setMemory(addr, 1L, (byte) 0); 
+				unsafe.putByte(addr, input[i]);
+			}
+			
+			byte[] output = new byte[input.length];
+			for (int i = 0; i < input.length; i++) {
+				long addr = addressArr[i];
+				System.out.println("+++++read+++" + i);
+				System.out.println(addr);
+				output[i] = unsafe.getByte(addr);
+			}
+			
+			System.out.println(new String(output));
+			for (byte b : output) {
+				System.out.print(b + ", ");
+			}
+			System.out.println();
+			
+			int failCount = 0;
+			for (int i = 0; i < output.length; i++) {
+				if (output[i] != input[i]) {
+					failCount++;
+				}
+			}
+			System.out.println("Failed num: " + failCount);
+		}
+		finally {
+			/*for (long addr : addressArr) {
+				getUnsafe().freeMemory(addr);
+			}*/
+		}
+		
+	}
+	
+	private void testOffHeapMemory_copyMemory_1() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
+		final String inputStr = "private void testOffHeapMemory_copyMemory_1() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {";
+		final byte[] input = inputStr.getBytes();
+
+		System.out.println(inputStr);
+		for (byte b : input) {
+			System.out.print(b + ", ");
+		}
+		System.out.println();
+		
+		final Unsafe unsafe = getUnsafe();
+		final long baseAddress = unsafe.allocateMemory(input.length);
+		try {
+			unsafe.copyMemory(input, unsafe.ARRAY_BYTE_BASE_OFFSET, null, baseAddress, input.length);
+			
+			final byte[] output = new byte[input.length];
+			unsafe.copyMemory(null, baseAddress, output, unsafe.ARRAY_BYTE_BASE_OFFSET, output.length);
+			
+			for (byte b : output) {
+				System.out.print(b + ", ");
+			}
+			System.out.println();
+			System.out.println(new String(output));
+			
+			int failCount = 0;
+			for (int i = 0; i < output.length; i++) {
+				if (output[i] != input[i]) {
+					failCount++;
+				}
+			}
+			System.out.println("Failed num: " + failCount);
+		}
+		finally {
+			unsafe.freeMemory(baseAddress);
+		}
+		
+	}
+	
+	private void exhaustRam() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
+		final Unsafe unsafe = getUnsafe();
+		final ExecutorService exec = Executors.newFixedThreadPool(10);
 		for (int i = 0; i < 10; i++) {
 			exec.submit(new Runnable() {
 				@Override
 				public void run() {
-						while (true) {
-							try {
-								long addr = getUnsafe().allocateMemory(1);
-								getUnsafe().putByte(addr, (byte) 99);
-							}
-							catch (Exception e) {
-							}
+					while (true) {
+						try {
+							long addr = unsafe.allocateMemory(1);
+							unsafe.putByte(addr, (byte) 99);
 						}
+						catch (Exception e) {
+						}
+					}
 				}
 			});
 		}
@@ -155,8 +295,11 @@ public class TestBase {
 //		base.testAvoidingObjectInit();
 
 //		base.testOffHeapMemory();
-		base.testOffHeapMemory2();
+//		base.testOffHeapMemory2();
+//		base.testOffHeapMemory3();
+//		base.testOffHeapMemory4();
 		
+		base.testOffHeapMemory_copyMemory_1();
 	}
 	
 }
